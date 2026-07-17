@@ -9,6 +9,7 @@ import os
 import shutil
 import subprocess
 import tempfile
+import time
 import urllib.request
 import zipfile
 from dataclasses import asdict, dataclass
@@ -38,10 +39,19 @@ class Disk:
     is_system: bool
     is_offline: bool
     operational_status: str
+    path: str = ""
 
     @property
     def device_path(self) -> str:
-        return rf"\\.\PhysicalDrive{self.number}"
+        return self.path or rf"\\.\PhysicalDrive{self.number}"
+
+    @property
+    def identifier(self) -> str:
+        return f"Disk {self.number}" if os.name == "nt" else self.device_path
+
+    @property
+    def confirmation_text(self) -> str:
+        return f"ERASE DISK {self.number}" if os.name == "nt" else f"ERASE {self.device_path.upper()}"
 
     @property
     def size_label(self) -> str:
@@ -49,7 +59,7 @@ class Disk:
 
     @property
     def display(self) -> str:
-        return f"Disk {self.number}  |  {self.name}  |  {self.size_label}  |  {self.bus_name}"
+        return f"{self.identifier}  |  {self.name}  |  {self.size_label}  |  {self.bus_name}"
 
 
 @dataclass(frozen=True)
@@ -144,6 +154,8 @@ $rows = foreach ($disk in $storage) {
 
 
 def enumerate_disks() -> list[Disk]:
+    if os.name != "nt":
+        return enumerate_linux_disks()
     completed = subprocess.run(
         ["powershell.exe", "-NoProfile", "-NonInteractive", "-Command", POWERSHELL_DISKS],
         capture_output=True,
@@ -160,10 +172,67 @@ def enumerate_disks() -> list[Disk]:
     return filter_safe_disks(disk_from_record(record) for record in records)
 
 
-def disk_number_for_path(path: Path) -> int | None:
+def _linux_mounts(node: dict) -> list[str]:
+    mounts = [str(item) for item in (node.get("mountpoints") or []) if item]
+    for child in node.get("children") or []:
+        mounts.extend(_linux_mounts(child))
+    return mounts
+
+
+def linux_disks_from_lsblk(payload: dict) -> list[Disk]:
+    disks: list[Disk] = []
+    for index, node in enumerate(payload.get("blockdevices") or []):
+        if node.get("type") != "disk":
+            continue
+        path = str(node.get("path") or f"/dev/{node.get('name', '')}")
+        transport = str(node.get("tran") or "").lower()
+        is_mmc = Path(path).name.startswith("mmcblk")
+        mounts = _linux_mounts(node)
+        removable = bool(int(node.get("rm") or 0) or int(node.get("hotplug") or 0))
+        bus_type = 12 if removable and (is_mmc or transport == "mmc") else (7 if transport == "usb" else 0)
+        disks.append(Disk(
+            number=index,
+            name=str(node.get("model") or Path(path).name).strip(),
+            size=int(node.get("size") or 0),
+            bus_type=bus_type,
+            bus_name="SD" if bus_type == 12 else ("USB" if bus_type == 7 else transport.upper() or "Unknown"),
+            media_type="Removable Media" if removable else "Fixed Media",
+            pnp_id=f"LINUX:{path}:{transport}:{'RM' if removable else 'FIXED'}",
+            is_boot=any(mount in {"/boot", "/boot/efi"} for mount in mounts),
+            is_system="/" in mounts,
+            is_offline=False,
+            operational_status="read-only" if bool(int(node.get("ro") or 0)) else "OK",
+            path=path,
+        ))
+    return filter_safe_disks(disks)
+
+
+def enumerate_linux_disks() -> list[Disk]:
+    completed = subprocess.run(
+        ["lsblk", "--json", "--bytes", "--output", "NAME,PATH,SIZE,TYPE,MODEL,TRAN,RM,HOTPLUG,RO,MOUNTPOINTS"],
+        capture_output=True,
+        text=True,
+        timeout=30,
+    )
+    if completed.returncode:
+        raise RuntimeError(completed.stderr.strip() or "Linux disk inventory failed")
+    return linux_disks_from_lsblk(json.loads(completed.stdout))
+
+
+def disk_number_for_path(path: Path) -> int | str | None:
     """Return the Windows physical disk number containing a local path."""
     if os.name != "nt":
-        return None
+        completed = subprocess.run(
+            ["findmnt", "--noheadings", "--output", "SOURCE", "--target", str(path.resolve(strict=False))],
+            capture_output=True,
+            text=True,
+            timeout=15,
+        )
+        source = completed.stdout.strip().splitlines()[0] if completed.returncode == 0 and completed.stdout.strip() else ""
+        if not source.startswith("/dev/"):
+            return None
+        parent = subprocess.run(["lsblk", "--noheadings", "--output", "PKNAME", source], capture_output=True, text=True, timeout=15).stdout.strip()
+        return f"/dev/{parent}" if parent else source
     resolved = path.resolve(strict=False)
     drive = resolved.drive
     if len(drive) < 1 or not drive[0].isalpha():
@@ -178,6 +247,11 @@ def disk_number_for_path(path: Path) -> int | None:
     )
     value = completed.stdout.strip()
     return int(value) if completed.returncode == 0 and value.isdigit() else None
+
+
+def path_is_on_disk(path: Path, disk: Disk) -> bool:
+    owner = disk_number_for_path(path)
+    return owner == (disk.number if os.name == "nt" else disk.device_path)
 
 
 def sha256_file(path: Path, progress: Progress | None = None, stage: str = "VERIFYING IMAGE") -> str:
@@ -309,15 +383,62 @@ def run_diskpart(lines: list[str]) -> str:
         script_path.unlink(missing_ok=True)
 
 
+def run_linux_command(arguments: list[str], timeout: int = 300) -> str:
+    completed = subprocess.run(arguments, capture_output=True, text=True, timeout=timeout)
+    if completed.returncode:
+        raise RuntimeError(completed.stderr.strip() or completed.stdout.strip() or f"Command failed: {arguments[0]}")
+    return completed.stdout
+
+
+def linux_partitions(disk: Disk) -> list[str]:
+    completed = subprocess.run(
+        ["lsblk", "--list", "--noheadings", "--paths", "--output", "PATH,TYPE", disk.device_path],
+        capture_output=True,
+        text=True,
+        timeout=30,
+    )
+    if completed.returncode:
+        return []
+    return [line.split()[0] for line in completed.stdout.splitlines() if len(line.split()) >= 2 and line.split()[1] == "part"]
+
+
+def unmount_linux_disk(disk: Disk) -> None:
+    for partition in linux_partitions(disk):
+        completed = subprocess.run(["umount", partition], capture_output=True, text=True, timeout=60)
+        if completed.returncode and "not mounted" not in completed.stderr.lower():
+            raise RuntimeError(completed.stderr.strip() or f"Could not unmount {partition}")
+
+
 def format_disk(disk: Disk, filesystem: str = "exfat", label: str = "MOBILEBASE") -> None:
     if not is_safe_target(disk):
         raise RuntimeError("The selected disk does not pass the removable-media safety policy")
     filesystem = filesystem.lower()
     if filesystem not in {"exfat", "fat32", "ntfs"}:
         raise ValueError("Unsupported filesystem")
-    if filesystem == "fat32" and disk.size > 32 * 1000**3:
+    if os.name == "nt" and filesystem == "fat32" and disk.size > 32 * 1000**3:
         raise ValueError("Windows cannot format FAT32 volumes larger than 32 GB; choose exFAT")
     safe_label = "".join(character for character in label.upper() if character.isalnum() or character in "-_ ")[:11].strip() or "MOBILEBASE"
+    if os.name != "nt":
+        unmount_linux_disk(disk)
+        run_linux_command(["wipefs", "--all", disk.device_path])
+        run_linux_command(["parted", "--script", disk.device_path, "mklabel", "msdos", "mkpart", "primary", "1MiB", "100%"])
+        subprocess.run(["partprobe", disk.device_path], capture_output=True, timeout=30)
+        partition = ""
+        for _ in range(20):
+            candidates = linux_partitions(disk)
+            if candidates:
+                partition = candidates[0]
+                break
+            time.sleep(0.25)
+        if not partition:
+            raise RuntimeError("Linux did not expose the new partition after formatting")
+        command = {
+            "exfat": ["mkfs.exfat", "-n", safe_label, partition],
+            "fat32": ["mkfs.vfat", "-F", "32", "-n", safe_label, partition],
+            "ntfs": ["mkfs.ntfs", "-F", "-L", safe_label, partition],
+        }[filesystem]
+        run_linux_command(command)
+        return
     run_diskpart([
         f"select disk {disk.number}",
         "attributes disk clear readonly",
@@ -333,6 +454,10 @@ def format_disk(disk: Disk, filesystem: str = "exfat", label: str = "MOBILEBASE"
 def clean_disk(disk: Disk) -> None:
     if not is_safe_target(disk):
         raise RuntimeError("The selected disk does not pass the removable-media safety policy")
+    if os.name != "nt":
+        unmount_linux_disk(disk)
+        run_linux_command(["wipefs", "--all", disk.device_path])
+        return
     run_diskpart([f"select disk {disk.number}", "attributes disk clear readonly", "clean", "exit"])
 
 
@@ -359,7 +484,7 @@ if os.name == "nt":
 
 def _open_physical_drive(disk: Disk, write: bool = False):
     if os.name != "nt":
-        raise RuntimeError("Raw disk imaging is supported only on Windows")
+        return open(disk.device_path, "r+b" if write else "rb", buffering=0)
     access = GENERIC_READ | (GENERIC_WRITE if write else 0)
     handle = kernel32.CreateFileW(
         disk.device_path,
@@ -376,11 +501,51 @@ def _open_physical_drive(disk: Disk, write: bool = False):
 
 
 def _read_handle(handle, amount: int) -> bytes:
+    if os.name != "nt":
+        return handle.read(amount)
     buffer = ctypes.create_string_buffer(amount)
     read = wintypes.DWORD()
     if not kernel32.ReadFile(handle, buffer, amount, ctypes.byref(read), None):
         raise ctypes.WinError(ctypes.get_last_error())
     return buffer.raw[: read.value]
+
+
+def _write_handle(handle, chunk: bytes) -> None:
+    if os.name != "nt":
+        written = handle.write(chunk)
+        if written != len(chunk):
+            raise RuntimeError("Linux reported an incomplete raw-disk write")
+        return
+    buffer = ctypes.create_string_buffer(chunk)
+    written = wintypes.DWORD()
+    if not kernel32.WriteFile(handle, buffer, len(chunk), ctypes.byref(written), None):
+        raise ctypes.WinError(ctypes.get_last_error())
+    if written.value != len(chunk):
+        raise RuntimeError("Windows reported an incomplete raw-disk write")
+
+
+def _flush_handle(handle) -> None:
+    if os.name != "nt":
+        handle.flush()
+        os.fsync(handle.fileno())
+        return
+    if not kernel32.FlushFileBuffers(handle):
+        raise ctypes.WinError(ctypes.get_last_error())
+
+
+def _seek_handle_start(handle) -> None:
+    if os.name != "nt":
+        handle.seek(0)
+        return
+    if not kernel32.SetFilePointerEx(handle, 0, None, FILE_BEGIN):
+        raise ctypes.WinError(ctypes.get_last_error())
+
+
+def _close_handle(handle) -> None:
+    if os.name != "nt":
+        handle.close()
+    else:
+        kernel32.CloseHandle(handle)
 
 
 def verify_image_against_disk(image: Path, disk: Disk, progress: Progress) -> str:
@@ -406,7 +571,7 @@ def verify_image_against_disk(image: Path, disk: Disk, progress: Progress) -> st
             raise RuntimeError(f"Media does not match the image. Expected {expected}, received {actual}.")
         return actual
     finally:
-        kernel32.CloseHandle(handle)
+        _close_handle(handle)
 
 
 def flash_and_verify(image: Path, disk: Disk, progress: Progress, verify: bool = True) -> str:
@@ -415,7 +580,7 @@ def flash_and_verify(image: Path, disk: Disk, progress: Progress, verify: bool =
     image_size = image.stat().st_size
     if image_size > disk.size:
         raise RuntimeError(f"Image is {human_size(image_size)}, but target capacity is only {disk.size_label}")
-    if disk_number_for_path(image) == disk.number:
+    if path_is_on_disk(image, disk):
         raise RuntimeError("The source image is stored on the selected target disk; move it before flashing")
     clean_disk(disk)
     handle = _open_physical_drive(disk, write=True)
@@ -424,22 +589,15 @@ def flash_and_verify(image: Path, disk: Disk, progress: Progress, verify: bool =
         done = 0
         with image.open("rb") as source:
             while chunk := source.read(CHUNK_SIZE):
-                buffer = ctypes.create_string_buffer(chunk)
-                written = wintypes.DWORD()
-                if not kernel32.WriteFile(handle, buffer, len(chunk), ctypes.byref(written), None):
-                    raise ctypes.WinError(ctypes.get_last_error())
-                if written.value != len(chunk):
-                    raise RuntimeError("Windows reported an incomplete raw-disk write")
+                _write_handle(handle, chunk)
                 image_digest.update(chunk)
-                done += written.value
+                done += len(chunk)
                 progress("FLASHING IMAGE", done, image_size)
-        if not kernel32.FlushFileBuffers(handle):
-            raise ctypes.WinError(ctypes.get_last_error())
+        _flush_handle(handle)
         expected = image_digest.hexdigest().upper()
         if not verify:
             return expected
-        if not kernel32.SetFilePointerEx(handle, 0, None, FILE_BEGIN):
-            raise ctypes.WinError(ctypes.get_last_error())
+        _seek_handle_start(handle)
         target_digest = hashlib.sha256()
         done = 0
         while done < image_size:
@@ -454,7 +612,7 @@ def flash_and_verify(image: Path, disk: Disk, progress: Progress, verify: bool =
             raise RuntimeError(f"Readback verification failed. Expected {expected}, received {actual}.")
         return expected
     finally:
-        kernel32.CloseHandle(handle)
+        _close_handle(handle)
 
 
 def backup_disk(disk: Disk, destination: Path, progress: Progress, compress: bool = True) -> BackupResult:
@@ -465,7 +623,7 @@ def backup_disk(disk: Disk, destination: Path, progress: Progress, compress: boo
     if not compress and not destination.name.lower().endswith(".img"):
         destination = Path(str(destination) + ".img")
     destination.parent.mkdir(parents=True, exist_ok=True)
-    if disk_number_for_path(destination.parent) == disk.number:
+    if path_is_on_disk(destination.parent, disk):
         raise RuntimeError("The backup destination is on the source disk; choose a different drive")
     free = shutil.disk_usage(destination.parent).free
     required = disk.size if not compress else min(disk.size, 2 * 1024**3)
@@ -498,7 +656,7 @@ def backup_disk(disk: Disk, destination: Path, progress: Progress, compress: boo
         partial.unlink(missing_ok=True)
         raise
     finally:
-        kernel32.CloseHandle(handle)
+        _close_handle(handle)
 
 
 def disk_debug_json(disks: Iterable[Disk]) -> str:

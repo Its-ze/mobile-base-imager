@@ -1,6 +1,6 @@
 # Mobile Base Imager
 
-Mobile Base Imager is a complete Windows disk-imaging workspace for Raspberry Pi and removable-media projects. It can download the verified Mobile Base appliance, open common image formats, flash and verify media, compare an existing card with an image, make full-device backups, format cards, and maintain checksums and image caches.
+Mobile Base Imager is a native Windows and Linux disk-imaging workspace for Raspberry Pi and removable-media projects. It downloads the verified Mobile Base appliance, opens common image formats, flashes and verifies media, compares existing cards with images, creates full-device backups, formats cards, and maintains checksums and caches.
 
 ## Imaging workflows
 
@@ -9,64 +9,73 @@ Mobile Base Imager is a complete Windows disk-imaging workspace for Raspberry Pi
 - **Backup** every byte of an SD/USB device to `.img` or compressed `.img.zst`.
 - **Format** removable media as exFAT, FAT32, or NTFS with a custom volume label.
 - **Download** the official Mobile Base Stable image with enforced SHA-256 verification.
-- **Download URL** for other HTTPS images, with an optional publisher checksum and resumable partial download.
-- **Image tools** calculate SHA-256 sidecars, open app storage, clear prepared-image cache, and save operation logs.
+- **Download URL** for other HTTPS images, with optional publisher checksum and resumable partial download.
+- **Image tools** calculate SHA-256 sidecars, open app storage, clear cache, and save operation logs.
 
 ## Safety model
 
-- Windows boot and system disks are always excluded.
+- Boot and system disks are always excluded.
 - Only removable USB/SD devices up to 2 TB are listed.
-- Raw media access requires Administrator privileges.
-- Every erase shows disk number, model, capacity, and bus type.
-- The operator must type `ERASE DISK N` before formatting or flashing begins.
-- Official downloads enforce their published SHA-256 before use.
-- Compressed local images use adjacent checksum sidecars when available and create a local integrity sidecar when explicitly approved.
+- Raw media access requires Administrator privileges on Windows or root through `pkexec` on Linux.
+- Every erase shows the device path or disk number, model, capacity, and bus type.
+- The operator must type the exact `ERASE ...` confirmation before formatting or flashing.
+- Official downloads enforce their published SHA-256.
 - Full byte-for-byte post-write verification is enabled by default.
-- Backups and verify-only operations open the device read-only.
+- Backups and verify-only operations open devices read-only.
+- The app refuses to flash from, or save a backup onto, the device being imaged.
 
-No software can identify every unusual card reader or USB bridge perfectly. Unplug unrelated external storage and confirm the displayed model, capacity, and disk number before approving an erase.
+Unplug unrelated external storage and confirm the displayed model, capacity, and device identifier before approving an erase.
 
-## Download
+## Downloads
 
-The public download page is intended to be:
+**https://its-ze.github.io/mobile-base-imager/**
 
-`https://its-ze.github.io/mobile-base-imager/`
+GitHub releases include:
 
-GitHub releases include the standalone Windows EXE, a portable ZIP, the Mobile Base Pi image, its checksum, and `checksums.txt`.
+- standalone Windows x64 EXE and portable ZIP;
+- standalone Linux x86_64 binary and portable `.tar.gz`;
+- Debian/Ubuntu amd64 `.deb` package;
+- the Mobile Base Raspberry Pi image and published checksums.
+
+## Linux installation
+
+Ubuntu 24.04+, Debian 13+, and compatible x86_64 distributions with glibc 2.39+ are supported.
+
+```bash
+sudo apt install ./mobile-base-imager_0.3.0_linux_amd64.deb
+```
+
+The portable Linux archive can run without installation. Extract it and launch `./mobile-base-imager`, or run `sudo ./install.sh` to add the desktop entry.
+
+Linux discovery uses `lsblk`; destructive operations use `wipefs`, `parted`, and the appropriate `mkfs` utility. The app's **Restart as root** button elevates only after the operator chooses a raw-media workflow.
 
 ## Flash Mobile Base
 
-1. Open `MobileBaseImager.exe` and choose **Restart as Admin**.
+1. Open Mobile Base Imager and elevate when requested.
 2. Insert the SD card and select **Refresh**.
-3. Choose **Mobile Base Stable**, or browse to a supported local image.
-4. Select the card by disk number, model, capacity, and bus.
+3. Choose **Mobile Base Stable**, or browse to a supported image.
+4. Confirm the target identifier, model, capacity, and bus.
 5. Choose **Flash Image + Verify** and complete the exact typed confirmation.
-6. Keep the card connected until both writing and readback verification complete.
-
-On first boot, Mobile Base creates its identity and pairing information, starts its setup Wi-Fi, and exposes network onboarding through the Android app or browser.
+6. Keep the card connected until writing and readback verification complete.
 
 ## Development
 
+Windows:
+
 ```powershell
-cd 'F:\Dropbox\Dev Ops\Mobile Base Imager'
 .\scripts\bootstrap.ps1
 & "$env:LOCALAPPDATA\MobileBaseImagerTooling\venv\Scripts\python.exe" -m pytest -q
-& "$env:LOCALAPPDATA\MobileBaseImagerTooling\venv\Scripts\python.exe" -m app.mobile_base_imager --demo
 .\scripts\build-release.ps1
 ```
 
-The release is self-contained for Windows 10/11 x64; Python is not required on the destination computer.
+Linux x86_64 through WSL Ubuntu:
 
-Version 0.2.0 is not Authenticode-signed, so Microsoft Defender SmartScreen may show an unknown-publisher or reputation prompt. Verify the published SHA-256 checksum before running it. A future release can remove this warning after a Windows code-signing certificate is added.
+```powershell
+.\scripts\build-linux.ps1
+```
+
+The Windows build is not Authenticode-signed and the Linux DEB does not yet have a repository signature. Always verify `checksums.txt` from the matching GitHub release.
 
 ## Publishing
 
-Authenticate GitHub CLI first:
-
-```powershell
-gh auth login
-gh auth status
-.\scripts\publish.ps1
-```
-
-Publishing creates or updates `Its-ze/mobile-base-imager`, pushes `main`, configures the Pages workflow, and uploads the versioned release artifacts.
+`scripts\publish.ps1` builds both operating systems, pushes the repository, configures Pages, and uploads the complete release asset set.

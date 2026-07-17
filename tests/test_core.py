@@ -1,5 +1,6 @@
 import gzip
 import lzma
+import os
 import zipfile
 from pathlib import Path
 
@@ -122,6 +123,8 @@ def test_zip_requires_exactly_one_image(tmp_path: Path):
 
 
 def test_format_rejects_large_fat32_before_diskpart(monkeypatch):
+    if os.name != "nt":
+        pytest.skip("Windows-specific FAT32 policy")
     called = False
 
     def fake_diskpart(_lines):
@@ -135,6 +138,8 @@ def test_format_rejects_large_fat32_before_diskpart(monkeypatch):
 
 
 def test_format_sanitizes_label(monkeypatch):
+    if os.name != "nt":
+        pytest.skip("Windows DiskPart command test")
     captured = []
     monkeypatch.setattr(core, "run_diskpart", lambda lines: captured.extend(lines))
     format_disk(disk(size=16_000_000_000), "fat32", "Mobile Base!!!")
@@ -144,14 +149,66 @@ def test_format_sanitizes_label(monkeypatch):
 def test_flash_refuses_image_stored_on_target(tmp_path: Path, monkeypatch):
     image = tmp_path / "source.img"
     image.write_bytes(b"image")
-    monkeypatch.setattr(core, "disk_number_for_path", lambda _path: 3)
+    target = disk(number=3, path="/dev/sdb")
+    monkeypatch.setattr(core, "disk_number_for_path", lambda _path: target.number if os.name == "nt" else target.device_path)
     monkeypatch.setattr(core, "clean_disk", lambda _disk: pytest.fail("disk must not be cleaned"))
     with pytest.raises(RuntimeError, match="source image is stored on the selected target"):
-        core.flash_and_verify(image, disk(number=3), progress)
+        core.flash_and_verify(image, target, progress)
 
 
 def test_backup_refuses_destination_on_source_disk(tmp_path: Path, monkeypatch):
-    monkeypatch.setattr(core, "disk_number_for_path", lambda _path: 3)
+    target = disk(number=3, path="/dev/sdb")
+    monkeypatch.setattr(core, "disk_number_for_path", lambda _path: target.number if os.name == "nt" else target.device_path)
     monkeypatch.setattr(core, "_open_physical_drive", lambda *_args, **_kwargs: pytest.fail("disk must not be opened"))
     with pytest.raises(RuntimeError, match="backup destination is on the source disk"):
-        core.backup_disk(disk(number=3), tmp_path / "backup.img.zst", progress)
+        core.backup_disk(target, tmp_path / "backup.img.zst", progress)
+
+
+def test_linux_lsblk_filters_internal_and_system_media():
+    payload = {
+        "blockdevices": [
+            {"name": "nvme0n1", "path": "/dev/nvme0n1", "size": 1_000_000, "type": "disk", "model": "Internal", "tran": "nvme", "rm": 0, "hotplug": 0, "ro": 0, "mountpoints": [None], "children": [{"mountpoints": ["/"]}]},
+            {"name": "sdb", "path": "/dev/sdb", "size": 64_000_000_000, "type": "disk", "model": "Card Reader", "tran": "usb", "rm": 1, "hotplug": 1, "ro": 0, "mountpoints": [None], "children": [{"mountpoints": ["/media/card"]}]},
+            {"name": "sdc", "path": "/dev/sdc", "size": 32_000_000_000, "type": "disk", "model": "USB Boot", "tran": "usb", "rm": 1, "hotplug": 1, "ro": 0, "mountpoints": [None], "children": [{"mountpoints": ["/"]}]},
+            {"name": "mmcblk0", "path": "/dev/mmcblk0", "size": 128_000_000_000, "type": "disk", "model": "SD Card", "tran": None, "rm": 0, "hotplug": 1, "ro": 0, "mountpoints": [None]},
+            {"name": "mmcblk1", "path": "/dev/mmcblk1", "size": 256_000_000_000, "type": "disk", "model": "Internal eMMC", "tran": None, "rm": 0, "hotplug": 0, "ro": 0, "mountpoints": [None]},
+        ]
+    }
+    result = core.linux_disks_from_lsblk(payload)
+    assert [item.device_path for item in result] == ["/dev/sdb", "/dev/mmcblk0"]
+    assert result[0].confirmation_text in {"ERASE DISK 1", "ERASE /DEV/SDB"}
+
+
+@pytest.mark.skipif(os.name == "nt", reason="Linux backend test")
+def test_linux_format_command_sequence(monkeypatch):
+    target = disk(number=1, size=16_000_000_000, path="/dev/sdb")
+    commands = []
+    unmounted = []
+    monkeypatch.setattr(core, "unmount_linux_disk", lambda item: unmounted.append(item.device_path))
+    monkeypatch.setattr(core, "run_linux_command", lambda arguments, timeout=300: commands.append(arguments) or "")
+    monkeypatch.setattr(core, "linux_partitions", lambda _item: ["/dev/sdb1"])
+    monkeypatch.setattr(core.subprocess, "run", lambda *_args, **_kwargs: type("Result", (), {"returncode": 0})())
+    core.format_disk(target, "exfat", "FIELD CARD")
+    assert unmounted == ["/dev/sdb"]
+    assert ["wipefs", "--all", "/dev/sdb"] in commands
+    assert ["parted", "--script", "/dev/sdb", "mklabel", "msdos", "mkpart", "primary", "1MiB", "100%"] in commands
+    assert ["mkfs.exfat", "-n", "FIELD CARD", "/dev/sdb1"] in commands
+
+
+@pytest.mark.skipif(os.name == "nt", reason="Linux raw-device backend test")
+def test_linux_raw_flash_verify_and_backup(tmp_path: Path, monkeypatch):
+    payload = b"mobile-base-linux-image" * 128
+    image = tmp_path / "source.img"
+    image.write_bytes(payload)
+    device = tmp_path / "device.bin"
+    device.write_bytes(b"\0" * (len(payload) + 4096))
+    target = disk(number=1, size=device.stat().st_size, path=str(device))
+    monkeypatch.setattr(core, "clean_disk", lambda _disk: None)
+    monkeypatch.setattr(core, "path_is_on_disk", lambda _path, _disk: False)
+    digest = core.flash_and_verify(image, target, progress, verify=True)
+    assert digest == sha256_file(image)
+    assert device.read_bytes()[: len(payload)] == payload
+    backup = core.backup_disk(target, tmp_path / "backup.img.zst", progress, compress=True)
+    assert backup.path.exists()
+    restored = zstandard.ZstdDecompressor().decompress(backup.path.read_bytes(), max_output_size=target.size)
+    assert restored == device.read_bytes()

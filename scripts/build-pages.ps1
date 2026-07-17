@@ -13,6 +13,9 @@ if (Test-Path -LiteralPath (Join-Path $Root "output\mobile-base-imager-ui.png"))
 $Image = Join-Path $Root "dist\mobile-base-pi5-0.8.0.img.zst"
 $Exe = Join-Path $Root "dist\mobile-base-imager-v$Version-windows-x64.exe"
 $Zip = Join-Path $Root "dist\mobile-base-imager-v$Version-windows-x64.zip"
+$LinuxBinary = Join-Path $Root "dist\mobile-base-imager-v$Version-linux-x86_64"
+$LinuxTar = Join-Path $Root "dist\mobile-base-imager-v$Version-linux-x86_64.tar.gz"
+$LinuxDeb = Join-Path $Root "dist\mobile-base-imager_$($Version)_linux_amd64.deb"
 $manifest = [ordered]@{
   appVersion = $Version
   imageVersion = "0.8.0"
@@ -25,6 +28,13 @@ $manifest = [ordered]@{
   exeSha256 = if (Test-Path -LiteralPath $Exe) { (Get-FileHash -Algorithm SHA256 -LiteralPath $Exe).Hash } else { "" }
   zipUrl = "https://github.com/Its-ze/mobile-base-imager/releases/download/v$Version/mobile-base-imager-v$Version-windows-x64.zip"
   zipBytes = if (Test-Path -LiteralPath $Zip) { (Get-Item -LiteralPath $Zip).Length } else { 0 }
+  linuxUrl = "https://github.com/Its-ze/mobile-base-imager/releases/download/v$Version/mobile-base-imager-v$Version-linux-x86_64.tar.gz"
+  linuxBytes = if (Test-Path -LiteralPath $LinuxTar) { (Get-Item -LiteralPath $LinuxTar).Length } else { 0 }
+  linuxSha256 = if (Test-Path -LiteralPath $LinuxTar) { (Get-FileHash -Algorithm SHA256 -LiteralPath $LinuxTar).Hash } else { "" }
+  linuxBinaryUrl = "https://github.com/Its-ze/mobile-base-imager/releases/download/v$Version/mobile-base-imager-v$Version-linux-x86_64"
+  linuxBinaryBytes = if (Test-Path -LiteralPath $LinuxBinary) { (Get-Item -LiteralPath $LinuxBinary).Length } else { 0 }
+  linuxDebUrl = "https://github.com/Its-ze/mobile-base-imager/releases/download/v$Version/mobile-base-imager_$($Version)_linux_amd64.deb"
+  linuxDebBytes = if (Test-Path -LiteralPath $LinuxDeb) { (Get-Item -LiteralPath $LinuxDeb).Length } else { 0 }
   generatedAt = (Get-Date).ToUniversalTime().ToString("yyyy-MM-ddTHH:mm:ssZ")
 }
 [IO.File]::WriteAllText((Join-Path $Docs "release-manifest.json"), ($manifest | ConvertTo-Json -Depth 5) + "`n", [Text.UTF8Encoding]::new($false))

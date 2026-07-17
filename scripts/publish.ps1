@@ -12,12 +12,13 @@ try {
   & gh auth status 2>$null | Out-Null
   if ($LASTEXITCODE -ne 0) { throw "GitHub CLI is not authenticated. Run gh auth login first." }
   & (Join-Path $PSScriptRoot "build-release.ps1") -Version $Version
+  & (Join-Path $PSScriptRoot "build-linux.ps1") -Version $Version
   if (-not (Test-Path -LiteralPath (Join-Path $Root ".git"))) {
     & git init -b main
     & git config user.name "Zach Skeens"
     & git config user.email "zachskeens@users.noreply.github.com"
   }
-  & git add .github .gitignore LICENSE README.md VERSION app assets docs requirements.txt requirements-dev.txt scripts tests
+  & git add .github .gitattributes .gitignore LICENSE README.md VERSION app assets docs linux requirements.txt requirements-dev.txt scripts tests
   if ($LASTEXITCODE -ne 0) { throw "Could not stage Mobile Base Imager files." }
   & git diff --cached --quiet
   if ($LASTEXITCODE -ne 0) {
@@ -42,12 +43,15 @@ try {
   $tag = "v$Version"
   $releaseTags = @((& gh release list --repo "$Owner/$Repo" --limit 100 --json tagName | ConvertFrom-Json) | ForEach-Object { $_.tagName })
   if ($releaseTags -notcontains $tag) {
-    & gh release create $tag --repo "$Owner/$Repo" --title "Mobile Base Imager $tag" --notes "Complete Windows imaging workspace with safe removable-drive filtering, five image formats, verified downloads, raw flashing, full readback, verify-only comparison, compressed backups, formatting, checksums, cache tools, and operation logs."
+    & gh release create $tag --repo "$Owner/$Repo" --title "Mobile Base Imager $tag" --notes "Native Windows and Linux imaging workspace with safe removable-drive filtering, five image formats, verified downloads, raw flashing, full readback, verify-only comparison, compressed backups, formatting, checksums, cache tools, and operation logs."
     if ($LASTEXITCODE -ne 0) { throw "Could not create the GitHub release." }
   }
   $assets = @(
     "dist\mobile-base-imager-v$Version-windows-x64.exe",
     "dist\mobile-base-imager-v$Version-windows-x64.zip",
+    "dist\mobile-base-imager-v$Version-linux-x86_64",
+    "dist\mobile-base-imager-v$Version-linux-x86_64.tar.gz",
+    "dist\mobile-base-imager_$($Version)_linux_amd64.deb",
     "dist\mobile-base-pi5-0.8.0.img.zst",
     "dist\mobile-base-pi5-0.8.0.img.zst.sha256",
     "dist\checksums.txt"

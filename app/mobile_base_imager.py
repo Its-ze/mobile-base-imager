@@ -40,7 +40,7 @@ MANIFEST_URL = "https://its-ze.github.io/mobile-base-imager/release-manifest.jso
 FALLBACK_MANIFEST = {
     "imageVersion": "0.8.0",
     "imageAsset": "mobile-base-pi5-0.8.0.img.zst",
-    "imageUrl": "https://github.com/Its-ze/mobile-base-imager/releases/download/v0.2.0/mobile-base-pi5-0.8.0.img.zst",
+    "imageUrl": "https://github.com/Its-ze/mobile-base-imager/releases/download/v0.3.0/mobile-base-pi5-0.8.0.img.zst",
     "imageBytes": 516990112,
     "imageSha256": "383F69782A91272B04D3C1AA396D5550DF952B4264112CC808865EA35D67505B",
 }
@@ -57,15 +57,43 @@ RED = "#ff6e72"
 
 
 def is_admin() -> bool:
+    if os.name != "nt":
+        return hasattr(os, "geteuid") and os.geteuid() == 0
     try:
         return bool(ctypes.windll.shell32.IsUserAnAdmin())
     except Exception:
         return False
 
 
+def user_identity() -> tuple[Path, int | None, int | None]:
+    if os.name != "nt" and os.getenv("PKEXEC_UID", "").isdigit():
+        import pwd
+
+        account = pwd.getpwuid(int(os.environ["PKEXEC_UID"]))
+        return Path(account.pw_dir), account.pw_uid, account.pw_gid
+    return Path.home(), None, None
+
+
+def restore_user_ownership(*paths: Path) -> None:
+    _home, uid, gid = user_identity()
+    if uid is None or gid is None:
+        return
+    for path in paths:
+        if path.exists():
+            os.chown(path, uid, gid)
+
+
 def app_data() -> Path:
-    root = Path(os.getenv("LOCALAPPDATA", Path.home() / "AppData/Local")) / "MobileBaseImager"
+    if os.name == "nt":
+        root = Path(os.getenv("LOCALAPPDATA", Path.home() / "AppData/Local")) / "MobileBaseImager"
+    else:
+        home, _uid, _gid = user_identity()
+        xdg_root = os.getenv("XDG_DATA_HOME")
+        root = Path(xdg_root or home / ".local/share") / "mobile-base-imager"
     root.mkdir(parents=True, exist_ok=True)
+    if os.name != "nt" and not os.getenv("XDG_DATA_HOME"):
+        restore_user_ownership(home / ".local", home / ".local/share")
+    restore_user_ownership(root.parent, root)
     return root
 
 
@@ -137,8 +165,18 @@ class ImagerApp:
         self.root.configure(bg=BG)
         resource_root = Path(getattr(sys, "_MEIPASS", Path(__file__).resolve().parents[1]))
         icon = resource_root / "assets" / "mobile-base-imager.ico"
-        if icon.exists():
-            self.root.iconbitmap(default=str(icon))
+        png_icon = resource_root / "assets" / "mobile-base-imager.png"
+        if os.name != "nt" and png_icon.exists():
+            try:
+                self._icon_photo = tk.PhotoImage(file=str(png_icon))
+                self.root.iconphoto(True, self._icon_photo)
+            except tk.TclError:
+                pass
+        elif icon.exists():
+            try:
+                self.root.iconbitmap(default=str(icon))
+            except tk.TclError:
+                pass
         try:
             ctypes.windll.shcore.SetProcessDpiAwareness(1)
         except Exception:
@@ -159,7 +197,8 @@ class ImagerApp:
         header.create_text(52, 44, text="MB", fill=MINT, font=("Segoe UI", 15, "bold"))
         header.create_text(94, 31, text="MOBILE BASE", fill=MINT, font=("Segoe UI", 9, "bold"), anchor="w")
         header.create_text(94, 54, text="IMAGER", fill=TEXT, font=("Segoe UI", 20, "bold"), anchor="w")
-        header.create_text(260, 44, text="FLASH  /  VERIFY  /  BACKUP  /  FORMAT", fill=MUTED, font=("Consolas", 10), anchor="w")
+        platform_label = "WINDOWS" if os.name == "nt" else "LINUX"
+        header.create_text(260, 44, text=f"{platform_label}  /  FLASH  /  VERIFY  /  BACKUP  /  FORMAT", fill=MUTED, font=("Consolas", 10), anchor="w")
         header.create_line(0, 87, 1220, 87, fill=LINE)
         self.admin_button = self._canvas_button(header, "", self.restart_admin, 998, 24, 190, 38, accent=False)
 
@@ -305,7 +344,8 @@ class ImagerApp:
         fs.grid(row=1, column=1, sticky="w", padx=(16, 0), pady=(12, 4))
         tk.Label(options, text="Volume label", bg=PANEL, fg=MUTED, font=("Segoe UI", 9)).grid(row=2, column=0, sticky="w", pady=4)
         self._entry(options, self.label_value, width=22).grid(row=2, column=1, sticky="w", padx=(16, 0), pady=4, ipady=8)
-        tk.Label(options, text="Use exFAT for cards larger than 32 GB. Windows limits FAT32 formatting to 32 GB.", bg=PANEL, fg=MUTED, font=("Segoe UI", 8)).grid(row=3, column=0, columnspan=2, sticky="w", pady=(8, 0))
+        format_note = "Use exFAT for cards larger than 32 GB. Windows limits FAT32 formatting to 32 GB." if os.name == "nt" else "Use exFAT for broad large-card compatibility; FAT32 and NTFS are also available."
+        tk.Label(options, text=format_note, bg=PANEL, fg=MUTED, font=("Segoe UI", 8)).grid(row=3, column=0, columnspan=2, sticky="w", pady=(8, 0))
 
         self.format_button = self._action_button(page, "ERASE + FORMAT MEDIA", self.start_format, danger=True)
         self.format_button.grid(row=3, column=0, sticky="ew", pady=(20, 0))
@@ -384,11 +424,24 @@ class ImagerApp:
 
     def _refresh_admin(self):
         if self.admin:
-            self.admin_button.configure(text="ADMINISTRATOR READY", fg=MINT, state="disabled")
+            self.admin_button.configure(text="ADMINISTRATOR READY" if os.name == "nt" else "ROOT ACCESS READY", fg=MINT, state="disabled")
         else:
-            self.admin_button.configure(text="RESTART AS ADMIN", fg=AMBER, state="normal")
+            self.admin_button.configure(text="RESTART AS ADMIN" if os.name == "nt" else "RESTART AS ROOT", fg=AMBER, state="normal")
 
     def restart_admin(self):
+        if os.name != "nt":
+            if getattr(sys, "frozen", False):
+                arguments = [sys.executable, *sys.argv[1:]]
+            else:
+                project_root = str(Path(__file__).resolve().parents[1])
+                arguments = ["env", f"PYTHONPATH={project_root}", sys.executable, "-m", "app.mobile_base_imager", *sys.argv[1:]]
+            try:
+                subprocess.Popen(["pkexec", *arguments])
+            except Exception as exc:
+                messagebox.showerror(PRODUCT, f"Linux did not grant root access: {exc}")
+                return
+            self.root.destroy()
+            return
         executable = sys.executable
         arguments = sys.argv[1:] if getattr(sys, "frozen", False) else [str(Path(__file__).resolve()), *sys.argv[1:]]
         parameters = subprocess.list2cmdline(arguments)
@@ -415,9 +468,11 @@ class ImagerApp:
             return
         try:
             if self.demo:
+                first_path = "" if os.name == "nt" else "/dev/sdb"
+                second_path = "" if os.name == "nt" else "/dev/sdc"
                 self.disks = [
-                    Disk(3, "Generic SD/MMC Reader", 64_000_000_000, 12, "SD", "Removable Media", "SD\\CARD", False, False, False, "OK"),
-                    Disk(5, "SanDisk USB Reader", 128_000_000_000, 7, "USB", "Removable Media", "USBSTOR\\DISK", False, False, False, "OK"),
+                    Disk(3, "Generic SD/MMC Reader", 64_000_000_000, 12, "SD", "Removable Media", "SD\\CARD", False, False, False, "OK", first_path),
+                    Disk(5, "SanDisk USB Reader", 128_000_000_000, 7, "USB", "Removable Media", "USBSTOR\\DISK", False, False, False, "OK", second_path),
                 ]
             else:
                 self.disks = enumerate_disks()
@@ -484,6 +539,7 @@ class ImagerApp:
             self._progress("VERIFIED CACHED DOWNLOAD", 1, 1)
         else:
             download_file(url, destination, checksum, self._progress)
+        restore_user_ownership(destination.parent, destination, Path(str(destination) + ".sha256"))
         self.root.after(0, lambda: self._select_source(destination))
         return f"Image ready: {destination}"
 
@@ -496,7 +552,7 @@ class ImagerApp:
             messagebox.showwarning(PRODUCT, "Insert and select a safe removable SD/USB device first.")
             return None
         if not self.admin:
-            messagebox.showwarning(PRODUCT, "Restart as Administrator before accessing raw media.")
+            messagebox.showwarning(PRODUCT, "Restart as Administrator before accessing raw media." if os.name == "nt" else "Restart as root before accessing raw media.")
             return None
         return disk
 
@@ -504,9 +560,9 @@ class ImagerApp:
         disk = self._require_admin_disk()
         if not disk:
             return None
-        if not messagebox.askyesno("Destructive operation", f"{action} will permanently erase Disk {disk.number}:\n\n{disk.name}\n{disk.size_label}\n{disk.bus_name}\n\nContinue to typed confirmation?"):
+        if not messagebox.askyesno("Destructive operation", f"{action} will permanently erase {disk.identifier}:\n\n{disk.name}\n{disk.size_label}\n{disk.bus_name}\n\nContinue to typed confirmation?"):
             return None
-        expected = f"ERASE DISK {disk.number}"
+        expected = disk.confirmation_text
         dialog = tk.Toplevel(self.root)
         dialog.title("Confirm target disk")
         dialog.configure(bg=PANEL)
@@ -565,7 +621,9 @@ class ImagerApp:
         cache.mkdir(parents=True, exist_ok=True)
         if not source.name.lower().endswith(".img") and shutil.disk_usage(cache).free < 10 * 1024**3:
             raise RuntimeError("At least 10 GB of free local space is required to prepare a compressed image.")
-        return prepare_image(source, cache, self._progress)
+        image = prepare_image(source, cache, self._progress)
+        restore_user_ownership(cache, image)
+        return image
 
     def _flash_worker(self, source: Path, disk: Disk):
         image = self._prepare_source(source)
@@ -574,7 +632,7 @@ class ImagerApp:
             digest = sha256_file(image) if image.exists() else "DEMO"
         else:
             digest = flash_and_verify(image, disk, self._progress, self.verify_value.get())
-        return f"Disk {disk.number} is ready. Image SHA-256: {digest}"
+        return f"{disk.identifier} is ready. Image SHA-256: {digest}"
 
     def start_verify(self):
         if self.busy:
@@ -583,7 +641,7 @@ class ImagerApp:
         disk = self._require_admin_disk()
         if not source or not disk:
             return
-        if not messagebox.askyesno(PRODUCT, f"Read Disk {disk.number} and compare it byte-for-byte with {source.name}? No data will be changed."):
+        if not messagebox.askyesno(PRODUCT, f"Read {disk.identifier} and compare it byte-for-byte with {source.name}? No data will be changed."):
             return
         self._run_operation("VERIFY", lambda: self._verify_worker(source, disk))
 
@@ -594,13 +652,15 @@ class ImagerApp:
             digest = "DEMO-VERIFIED"
         else:
             digest = verify_image_against_disk(image, disk, self._progress)
-        return f"Disk {disk.number} matches the selected image. SHA-256: {digest}"
+        return f"{disk.identifier} matches the selected image. SHA-256: {digest}"
 
     def _set_backup_default(self):
         disk = self.selected_disk()
         if disk and not self.backup_path.get():
             stamp = time.strftime("%Y%m%d-%H%M")
-            self.backup_path.set(str(Path.home() / "Documents" / f"disk-{disk.number}-backup-{stamp}.img.zst"))
+            device_name = Path(disk.device_path).name if os.name != "nt" else f"disk-{disk.number}"
+            home, _uid, _gid = user_identity()
+            self.backup_path.set(str(home / "Documents" / f"{device_name}-backup-{stamp}.img.zst"))
 
     def choose_backup_path(self):
         extension = ".img.zst" if self.backup_compress.get() else ".img"
@@ -631,15 +691,16 @@ class ImagerApp:
         destination = Path(destination_text)
         if destination.exists() and not messagebox.askyesno(PRODUCT, f"Replace existing file?\n\n{destination}"):
             return
-        if not messagebox.askyesno(PRODUCT, f"Create a full {disk.size_label} backup of Disk {disk.number}?\n\nThis is read-only but may take a long time and require substantial storage."):
+        if not messagebox.askyesno(PRODUCT, f"Create a full {disk.size_label} backup of {disk.identifier}?\n\nThis is read-only but may take a long time and require substantial storage."):
             return
         self._run_operation("BACKUP", lambda: self._backup_worker(disk, destination))
 
     def _backup_worker(self, disk: Disk, destination: Path):
         if self.demo:
             self._demo_progress("DEMO BACKUP")
-            return f"Demo backup completed for Disk {disk.number}: {destination}"
+            return f"Demo backup completed for {disk.identifier}: {destination}"
         result = backup_disk(disk, destination, self._progress, self.backup_compress.get())
+        restore_user_ownership(result.path.parent, result.path, Path(str(result.path) + ".sha256"))
         return f"Backup complete: {result.path} / SHA-256: {result.sha256}"
 
     def start_format(self):
@@ -656,7 +717,7 @@ class ImagerApp:
         else:
             format_disk(disk, self.fs_value.get(), self.label_value.get())
         self._progress("FORMAT COMPLETE", 1, 1)
-        return f"Disk {disk.number} formatted as {self.fs_value.get().upper()} with label {self.label_value.get().upper()}."
+        return f"{disk.identifier} formatted as {self.fs_value.get().upper()} with label {self.label_value.get().upper()}."
 
     def inspect_image(self):
         if self.busy:
@@ -667,13 +728,17 @@ class ImagerApp:
 
     def _inspect_worker(self, source: Path):
         digest = sha256_file(source, self._progress, "CALCULATING SHA-256")
-        write_checksum(source, digest)
+        checksum_path = write_checksum(source, digest)
+        restore_user_ownership(checksum_path)
         self.root.after(0, lambda: self.source_info.set(f"{image_format(source)}  /  {human_size(source.stat().st_size)}  /  SHA-256 {digest}"))
         return f"Checksum written beside {source.name}: {digest}"
 
     def open_folder(self, folder: Path):
         folder.mkdir(parents=True, exist_ok=True)
-        os.startfile(folder)
+        if os.name == "nt":
+            os.startfile(folder)
+        else:
+            subprocess.Popen(["xdg-open", str(folder)])
 
     def clear_cache(self):
         cache = app_data() / "cache"
@@ -683,12 +748,15 @@ class ImagerApp:
         if messagebox.askyesno(PRODUCT, "Remove all prepared/decompressed images from the app cache? Downloaded source images are kept."):
             shutil.rmtree(cache)
             cache.mkdir(parents=True, exist_ok=True)
+            restore_user_ownership(cache)
             self._log("Prepared-image cache cleared.")
 
     def save_log(self):
         path = filedialog.asksaveasfilename(title="Save operation log", defaultextension=".log", filetypes=[("Log file", "*.log"), ("Text file", "*.txt")])
         if path:
-            Path(path).write_text(self.log.get("1.0", "end-1c") + "\n", encoding="utf-8")
+            log_path = Path(path)
+            log_path.write_text(self.log.get("1.0", "end-1c") + "\n", encoding="utf-8")
+            restore_user_ownership(log_path)
             self._log(f"Log saved to {path}")
 
     def _demo_progress(self, stage: str):

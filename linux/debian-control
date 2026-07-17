@@ -1,0 +1,11 @@
+Package: mobile-base-imager
+Version: VERSION
+Section: utils
+Priority: optional
+Architecture: amd64
+Maintainer: Zach Skeens <zachskeens@users.noreply.github.com>
+Depends: libc6 (>= 2.39), policykit-1 | pkexec, util-linux, parted, dosfstools, exfatprogs, ntfs-3g, xdg-utils
+Homepage: https://its-ze.github.io/mobile-base-imager/
+Description: Safe removable-media imager for Mobile Base and Raspberry Pi
+ Flash, verify, back up, and format removable USB and SD media with
+ boot-disk exclusion, typed erase confirmation, and SHA-256 verification.

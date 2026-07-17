@@ -1,0 +1,10 @@
+[Desktop Entry]
+Type=Application
+Name=Mobile Base Imager
+Comment=Flash, verify, back up, and format removable media
+Exec=mobile-base-imager
+Icon=mobile-base-imager
+Terminal=false
+Categories=System;Utility;
+Keywords=Raspberry Pi;SD card;image;flash;backup;
+StartupNotify=true
