@@ -1,0 +1,7 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 256 256" role="img" aria-label="Mobile Base Imager">
+  <rect width="256" height="256" rx="42" fill="#071013"/>
+  <path d="M42 35h130l42 42v144H84l-42-42z" fill="#0d1a1e" stroke="#59e2d2" stroke-width="8"/>
+  <path d="M172 35v42h42" fill="none" stroke="#59e2d2" stroke-width="8"/>
+  <path d="M78 154h100M94 181h68" stroke="#f3b861" stroke-width="10" stroke-linecap="round"/>
+  <text x="72" y="124" fill="#59e2d2" font-family="Segoe UI,Arial,sans-serif" font-size="54" font-weight="800">MB</text>
+</svg>

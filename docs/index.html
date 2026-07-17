@@ -1,0 +1,67 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width,initial-scale=1">
+  <meta name="theme-color" content="#071013">
+  <meta name="description" content="Download Mobile Base Imager, a complete Windows flash, verify, backup, and format workspace for Raspberry Pi images and removable media.">
+  <title>Mobile Base Imager</title>
+  <link rel="icon" href="assets/mobile-base-imager-mark.svg">
+  <link rel="stylesheet" href="styles.css">
+</head>
+<body>
+  <div class="grid"></div>
+  <header>
+    <a class="brand" href="#top"><img src="assets/mobile-base-imager-mark.svg" alt=""><span><small>MOBILE BASE</small><strong>IMAGER</strong></span></a>
+    <nav><a href="#features">Features</a><a href="#safety">Safety</a><a href="https://github.com/Its-ze/mobile-base-imager">GitHub</a></nav>
+  </header>
+  <main id="top">
+    <section class="hero">
+      <div class="hero-copy">
+        <p class="eyebrow">COMPLETE REMOVABLE-MEDIA IMAGING WORKSPACE</p>
+        <h1>Flash, verify, back up, and format with confidence.</h1>
+        <p class="lead">A purpose-built Windows imaging application for Mobile Base, Raspberry Pi, and removable-media projects. It handles common compressed images, identifies safe targets, proves every write, and can turn a complete card back into a reusable image.</p>
+        <div class="actions">
+          <a id="download-exe" class="button primary" href="https://github.com/Its-ze/mobile-base-imager/releases/latest">DOWNLOAD FOR WINDOWS</a>
+          <a id="download-image" class="button" href="https://github.com/Its-ze/mobile-base-imager/releases/latest">MOBILE BASE IMAGE</a>
+        </div>
+        <div class="release"><span class="pulse"></span><strong id="release-version">v0.2.0</strong><span>Windows 10/11 x64</span><span>Open source</span></div>
+      </div>
+      <div class="product-card">
+        <div class="window-bar"><i></i><span>MOBILE BASE IMAGER</span><em>ADMIN READY</em></div>
+        <img src="assets/mobile-base-imager-ui.png" alt="Mobile Base Imager full application workspace" onerror="this.style.display='none';this.nextElementSibling.style.display='grid'">
+        <div class="placeholder"><img src="assets/mobile-base-imager-mark.svg" alt=""><b>FLASH / VERIFY / BACKUP / FORMAT</b><small>Application preview is generated during the release build.</small></div>
+      </div>
+    </section>
+
+    <section class="metrics">
+      <article><small>IMAGE INPUT</small><strong>5 FORMATS</strong><span>IMG, ZST, GZ, XZ, and ZIP</span></article>
+      <article><small>IMAGE TRUST</small><strong>SHA-256</strong><span>Verification and sidecars</span></article>
+      <article><small>WRITE PROOF</small><strong>FULL READBACK</strong><span>Byte-for-byte after flashing</span></article>
+      <article><small>BACKUP</small><strong>RAW OR ZSTD</strong><span>Complete device images</span></article>
+    </section>
+
+    <section id="features" class="section">
+      <p class="eyebrow">ONE APPLICATION, FOUR WORKFLOWS</p><h2>A full image workshop for field systems.</h2>
+      <div class="steps">
+        <article><b>01</b><h3>Flash and prove</h3><p>Download Mobile Base Stable or choose a local <code>.img</code>, <code>.img.zst</code>, <code>.img.gz</code>, <code>.img.xz</code>, or single-image <code>.zip</code>. Full readback is enabled by default.</p></article>
+        <article><b>02</b><h3>Verify or back up</h3><p>Compare an existing card with its source image without changing it, or read every byte into a raw or Zstandard-compressed backup with a checksum sidecar.</p></article>
+        <article><b>03</b><h3>Format and manage</h3><p>Prepare cards as exFAT, FAT32, or NTFS, calculate SHA-256 files, resume downloads, manage prepared-image cache, and save operation history.</p></article>
+      </div>
+    </section>
+
+    <section id="safety" class="safety section">
+      <div><p class="eyebrow">DESTRUCTIVE-OPERATION SAFETY</p><h2>Designed to make the target unmistakable.</h2><p>The imager never offers an internal disk. Windows boot and system disks are excluded at inventory. Every flash or format requires elevation, full device details, a warning, and typing the exact disk number.</p></div>
+      <ul><li>USB/SD removable-media allowlist</li><li>Boot and system disks blocked</li><li>Official checksum enforcement</li><li>Exact typed erase confirmation</li><li>Read-only backup and verify modes</li><li>Full post-write verification by default</li></ul>
+    </section>
+
+    <section class="download-panel">
+      <img src="assets/mobile-base-imager-mark.svg" alt="">
+      <div><p class="eyebrow">READY TO IMAGE</p><h2>Download Mobile Base Imager</h2><p id="download-meta">Loading verified release metadata...</p><small class="unsigned-note">This build is unsigned. Verify its published SHA-256 if Windows shows an unknown-publisher prompt.</small></div>
+      <a id="download-bottom" class="button primary" href="https://github.com/Its-ze/mobile-base-imager/releases/latest">GET WINDOWS APP</a>
+    </section>
+  </main>
+  <footer><span>© 2026 Zach Skeens</span><span>Mobile Base Field Systems</span><a href="https://github.com/Its-ze/mobile-base-imager/releases">Checksums & releases</a></footer>
+  <script src="app.js"></script>
+</body>
+</html>

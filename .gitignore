@@ -1,0 +1,15 @@
+.venv/
+__pycache__/
+.pytest_cache/
+build/
+dist/
+output/
+.playwright-cli/
+.server.pid
+*.spec
+*.pyc
+docs/downloads/*.exe
+docs/downloads/*.zip
+docs/downloads/*.zst
+docs/downloads/*.sha256
+!docs/downloads/.gitkeep
