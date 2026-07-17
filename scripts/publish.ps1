@@ -40,8 +40,8 @@ try {
     & gh api "repos/$Owner/$Repo/pages" -X PUT -f build_type=workflow | Out-Null
   }
   $tag = "v$Version"
-  $releaseTag = & gh release list --repo "$Owner/$Repo" --limit 100 --json tagName --jq ".[] | select(.tagName == \"$tag\") | .tagName"
-  if ($releaseTag -ne $tag) {
+  $releaseTags = @((& gh release list --repo "$Owner/$Repo" --limit 100 --json tagName | ConvertFrom-Json) | ForEach-Object { $_.tagName })
+  if ($releaseTags -notcontains $tag) {
     & gh release create $tag --repo "$Owner/$Repo" --title "Mobile Base Imager $tag" --notes "Complete Windows imaging workspace with safe removable-drive filtering, five image formats, verified downloads, raw flashing, full readback, verify-only comparison, compressed backups, formatting, checksums, cache tools, and operation logs."
     if ($LASTEXITCODE -ne 0) { throw "Could not create the GitHub release." }
   }
