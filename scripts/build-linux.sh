@@ -75,7 +75,7 @@ for library in \
   libfontconfig.so.1 \
   libfreetype.so.6 \
   libexpat.so.1; do
-  source_path="$(ldconfig -p | awk -v name="$library" '$1 == name { print $NF; exit }')"
+  source_path="$(ldconfig -p | awk -v name="$library" '$1 == name && !path { path=$NF } END { print path }')"
   [[ -n "$source_path" ]] || { echo "Missing build dependency: $library" >&2; exit 1; }
   cp --dereference "$source_path" "$APPDIR/usr/lib/$library"
   chmod 0644 "$APPDIR/usr/lib/$library"
@@ -99,6 +99,10 @@ ARCH=x86_64 LDAI_OUTPUT="$APPIMAGE" "$LINUXDEPLOY" --appimage-extract-and-run \
   --output appimage
 chmod 0755 "$APPIMAGE"
 "$APPIMAGE" --appimage-extract-and-run --self-test
+if command -v podman >/dev/null 2>&1; then
+  podman run --rm -v "$DIST:/artifacts:ro" docker.io/library/fedora:42 \
+    "/artifacts/$(basename "$APPIMAGE")" --appimage-extract-and-run --self-test
+fi
 
 INSTALLER="$DIST/install-mobile-base-imager.sh"
 sed "s/@VERSION@/$VERSION/g" "$ROOT/linux/install-mobile-base-imager.sh" >"$INSTALLER"

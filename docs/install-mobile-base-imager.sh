@@ -2,7 +2,7 @@
 set -euo pipefail
 
 PRODUCT="Mobile Base Imager"
-VERSION="${MOBILE_BASE_IMAGER_VERSION:-0.3.2}"
+VERSION="${MOBILE_BASE_IMAGER_VERSION:-0.3.3}"
 REPOSITORY="${MOBILE_BASE_IMAGER_REPOSITORY:-Its-ze/mobile-base-imager}"
 RELEASE_BASE="${MOBILE_BASE_IMAGER_RELEASE_BASE_URL:-https://github.com/${REPOSITORY}/releases/download/v${VERSION}}"
 DEB_NAME="mobile-base-imager_${VERSION}_linux_amd64.deb"

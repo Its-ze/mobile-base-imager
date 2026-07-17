@@ -49,9 +49,9 @@ try {
   $releaseTags = @((& gh release list --repo "$Owner/$Repo" --limit 100 --json tagName | ConvertFrom-Json) | ForEach-Object { $_.tagName })
   if ($releaseTags -notcontains $tag) {
     $releaseNotes = @"
-Mobile Base Imager $tag adds a Fedora-compatible AppImage alongside the Windows, portable Linux, Debian, and shell-installer builds.
+Mobile Base Imager $tag refreshes the Windows, Fedora AppImage, portable Linux, Debian, and shell-installer builds for Mobile Base 0.9.0.
 
-This release also includes Mobile Base Pi image 0.8.1. It corrects the Raspberry Pi boot configuration to mount the ROOT and BOOT filesystem labels directly, fixing the previous `/dev/disk/by-slot/system` initramfs boot failure.
+This release includes Mobile Base Pi image 0.9.0 with its visible, opt-in outbound management agent. Enrolled units can report diagnostics and receive audited, expiring commands through the authenticated Unraid home base at https://mobilebase.itsz.studio without accepting unsolicited inbound Internet connections.
 
 The imager retains safe removable-drive filtering, verified downloads, raw flashing, full readback, verify-only comparison, compressed backups, formatting, checksums, cache tools, and operation logs.
 "@
@@ -66,8 +66,8 @@ The imager retains safe removable-drive filtering, verified downloads, raw flash
     "dist\mobile-base-imager_$($Version)_linux_amd64.deb",
     "dist\Mobile_Base_Imager-$Version-x86_64.AppImage",
     "dist\install-mobile-base-imager.sh",
-    "dist\mobile-base-pi5-0.8.1.img.zst",
-    "dist\mobile-base-pi5-0.8.1.img.zst.sha256",
+    "dist\mobile-base-pi5-0.9.0.img.zst",
+    "dist\mobile-base-pi5-0.9.0.img.zst.sha256",
     "dist\checksums.txt"
   )
   & gh release upload $tag @assets --repo "$Owner/$Repo" --clobber
