@@ -24,20 +24,24 @@ try {
     & git commit -m "Build Mobile Base Imager $Version"
     if ($LASTEXITCODE -ne 0) { throw "Could not commit the release." }
   }
-  & git remote get-url origin 2>$null | Out-Null
-  if ($LASTEXITCODE -ne 0) {
+  $remotes = @(& git remote)
+  if ($remotes -notcontains "origin") {
     & gh repo create "$Owner/$Repo" --public --source . --remote origin --description "Safe Windows SD card formatter and flasher for the Mobile Base Raspberry Pi appliance"
     if ($LASTEXITCODE -ne 0) { throw "Could not create the GitHub repository." }
   }
   & git push -u origin main
   if ($LASTEXITCODE -ne 0) { throw "Could not push main to GitHub." }
+  $previousErrorAction = $ErrorActionPreference
+  $ErrorActionPreference = "Continue"
   & gh api "repos/$Owner/$Repo/pages" -X POST -f build_type=workflow 2>$null | Out-Null
-  if ($LASTEXITCODE -ne 0) {
+  $pagesCreateExit = $LASTEXITCODE
+  $ErrorActionPreference = $previousErrorAction
+  if ($pagesCreateExit -ne 0) {
     & gh api "repos/$Owner/$Repo/pages" -X PUT -f build_type=workflow | Out-Null
   }
   $tag = "v$Version"
-  & gh release view $tag --repo "$Owner/$Repo" 2>$null | Out-Null
-  if ($LASTEXITCODE -ne 0) {
+  $releaseTag = & gh release list --repo "$Owner/$Repo" --limit 100 --json tagName --jq ".[] | select(.tagName == \"$tag\") | .tagName"
+  if ($releaseTag -ne $tag) {
     & gh release create $tag --repo "$Owner/$Repo" --title "Mobile Base Imager $tag" --notes "Complete Windows imaging workspace with safe removable-drive filtering, five image formats, verified downloads, raw flashing, full readback, verify-only comparison, compressed backups, formatting, checksums, cache tools, and operation logs."
     if ($LASTEXITCODE -ne 0) { throw "Could not create the GitHub release." }
   }

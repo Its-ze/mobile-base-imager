@@ -24,7 +24,7 @@ $Dist = Join-Path $Root "dist"
 & $PyInstaller --noconfirm --clean --onefile --windowed --name MobileBaseImager --icon (Join-Path $Root "assets\mobile-base-imager.ico") --add-data "$(Join-Path $Root 'assets\mobile-base-imager.ico');assets" --paths $Root --distpath $Dist --workpath (Join-Path $Root "build") --specpath $Root (Join-Path $Root "app\mobile_base_imager.py")
 if ($LASTEXITCODE -ne 0) { throw "PyInstaller build failed." }
 
-$Stage = Join-Path $Dist "stage"
+$Stage = Join-Path $env:TEMP "MobileBaseImagerRelease-$PID"
 $Package = Join-Path $Stage "Mobile Base Imager"
 Remove-Item -LiteralPath $Stage -Recurse -Force -ErrorAction SilentlyContinue
 New-Item -ItemType Directory -Force -Path $Package | Out-Null
@@ -36,7 +36,10 @@ Copy-Item -LiteralPath (Join-Path $Root "README.md") -Destination (Join-Path $Pa
 Copy-Item -LiteralPath (Join-Path $Root "LICENSE") -Destination $Package -Force
 $Zip = Join-Path $Dist "mobile-base-imager-v$Version-windows-x64.zip"
 Remove-Item -LiteralPath $Zip -Force -ErrorAction SilentlyContinue
-Compress-Archive -LiteralPath $Package -DestinationPath $Zip -Force
+$TempZip = Join-Path $Stage "mobile-base-imager-v$Version-windows-x64.zip"
+Compress-Archive -LiteralPath $Package -DestinationPath $TempZip -Force
+Copy-Item -LiteralPath $TempZip -Destination $Zip -Force
+Remove-Item -LiteralPath $Stage -Recurse -Force -ErrorAction SilentlyContinue
 Copy-Item -LiteralPath $Image -Destination (Join-Path $Dist "mobile-base-pi5-0.8.0.img.zst") -Force
 Copy-Item -LiteralPath $ImageChecksum -Destination (Join-Path $Dist "mobile-base-pi5-0.8.0.img.zst.sha256") -Force
 
