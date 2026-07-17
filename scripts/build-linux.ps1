@@ -18,6 +18,7 @@ $assets = @(
   (Join-Path $Dist "mobile-base-imager-v$Version-linux-x86_64"),
   (Join-Path $Dist "mobile-base-imager-v$Version-linux-x86_64.tar.gz"),
   (Join-Path $Dist "mobile-base-imager_$($Version)_linux_amd64.deb"),
+  (Join-Path $Dist "install-mobile-base-imager.sh"),
   (Join-Path $Dist "mobile-base-pi5-0.8.0.img.zst")
 ) | Where-Object { Test-Path -LiteralPath $_ }
 $lines = foreach ($asset in $assets) {

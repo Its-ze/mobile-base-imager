@@ -14,6 +14,8 @@ The Linux build supports the same flash, verify, full-backup, format, download, 
 sudo apt install ./mobile-base-imager_VERSION_linux_amd64.deb
 ```
 
+The GitHub release also provides `install-mobile-base-imager.sh`, which downloads the matching DEB, verifies its SHA-256, installs dependencies, and runs a self-test.
+
 ## Run the portable archive
 
 Extract the archive and run `./mobile-base-imager`, or install it with `sudo ./install.sh`.

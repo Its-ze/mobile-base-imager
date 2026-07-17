@@ -40,7 +40,7 @@ MANIFEST_URL = "https://its-ze.github.io/mobile-base-imager/release-manifest.jso
 FALLBACK_MANIFEST = {
     "imageVersion": "0.8.0",
     "imageAsset": "mobile-base-pi5-0.8.0.img.zst",
-    "imageUrl": "https://github.com/Its-ze/mobile-base-imager/releases/download/v0.3.0/mobile-base-pi5-0.8.0.img.zst",
+    "imageUrl": "https://github.com/Its-ze/mobile-base-imager/releases/download/v0.3.1/mobile-base-pi5-0.8.0.img.zst",
     "imageBytes": 516990112,
     "imageSha256": "383F69782A91272B04D3C1AA396D5550DF952B4264112CC808865EA35D67505B",
 }

@@ -54,5 +54,8 @@ install -m 0644 "$ROOT/linux/mobile-base-imager.desktop" "$DEBROOT/usr/share/app
 install -m 0644 "$ROOT/assets/mobile-base-imager.png" "$DEBROOT/usr/share/icons/hicolor/256x256/apps/mobile-base-imager.png"
 DEB="$DIST/mobile-base-imager_${VERSION}_linux_amd64.deb"
 dpkg-deb --build --root-owner-group "$DEBROOT" "$DEB" >/dev/null
+INSTALLER="$DIST/install-mobile-base-imager.sh"
+sed "s/@VERSION@/$VERSION/g" "$ROOT/linux/install-mobile-base-imager.sh" >"$INSTALLER"
+chmod 0755 "$INSTALLER"
 
-printf 'Linux release ready:\n  %s\n  %s\n  %s\n' "$BINARY" "$TARBALL" "$DEB"
+printf 'Linux release ready:\n  %s\n  %s\n  %s\n  %s\n' "$BINARY" "$TARBALL" "$DEB" "$INSTALLER"

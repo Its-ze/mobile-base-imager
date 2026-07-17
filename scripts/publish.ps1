@@ -43,7 +43,7 @@ try {
   $tag = "v$Version"
   $releaseTags = @((& gh release list --repo "$Owner/$Repo" --limit 100 --json tagName | ConvertFrom-Json) | ForEach-Object { $_.tagName })
   if ($releaseTags -notcontains $tag) {
-    & gh release create $tag --repo "$Owner/$Repo" --title "Mobile Base Imager $tag" --notes "Native Windows and Linux imaging workspace with safe removable-drive filtering, five image formats, verified downloads, raw flashing, full readback, verify-only comparison, compressed backups, formatting, checksums, cache tools, and operation logs."
+    & gh release create $tag --repo "$Owner/$Repo" --title "Mobile Base Imager $tag" --notes "Native Windows and Linux imaging workspace with a one-command checksum-verifying Linux shell installer, safe removable-drive filtering, five image formats, verified downloads, raw flashing, full readback, verify-only comparison, compressed backups, formatting, checksums, cache tools, and operation logs."
     if ($LASTEXITCODE -ne 0) { throw "Could not create the GitHub release." }
   }
   $assets = @(
@@ -52,6 +52,7 @@ try {
     "dist\mobile-base-imager-v$Version-linux-x86_64",
     "dist\mobile-base-imager-v$Version-linux-x86_64.tar.gz",
     "dist\mobile-base-imager_$($Version)_linux_amd64.deb",
+    "dist\install-mobile-base-imager.sh",
     "dist\mobile-base-pi5-0.8.0.img.zst",
     "dist\mobile-base-pi5-0.8.0.img.zst.sha256",
     "dist\checksums.txt"

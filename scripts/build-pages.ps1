@@ -16,6 +16,10 @@ $Zip = Join-Path $Root "dist\mobile-base-imager-v$Version-windows-x64.zip"
 $LinuxBinary = Join-Path $Root "dist\mobile-base-imager-v$Version-linux-x86_64"
 $LinuxTar = Join-Path $Root "dist\mobile-base-imager-v$Version-linux-x86_64.tar.gz"
 $LinuxDeb = Join-Path $Root "dist\mobile-base-imager_$($Version)_linux_amd64.deb"
+$LinuxInstaller = Join-Path $Root "dist\install-mobile-base-imager.sh"
+if (Test-Path -LiteralPath $LinuxInstaller) {
+  Copy-Item -LiteralPath $LinuxInstaller -Destination (Join-Path $Docs "install-mobile-base-imager.sh") -Force
+}
 $manifest = [ordered]@{
   appVersion = $Version
   imageVersion = "0.8.0"
@@ -35,6 +39,10 @@ $manifest = [ordered]@{
   linuxBinaryBytes = if (Test-Path -LiteralPath $LinuxBinary) { (Get-Item -LiteralPath $LinuxBinary).Length } else { 0 }
   linuxDebUrl = "https://github.com/Its-ze/mobile-base-imager/releases/download/v$Version/mobile-base-imager_$($Version)_linux_amd64.deb"
   linuxDebBytes = if (Test-Path -LiteralPath $LinuxDeb) { (Get-Item -LiteralPath $LinuxDeb).Length } else { 0 }
+  linuxDebSha256 = if (Test-Path -LiteralPath $LinuxDeb) { (Get-FileHash -Algorithm SHA256 -LiteralPath $LinuxDeb).Hash } else { "" }
+  linuxInstallerUrl = "https://github.com/Its-ze/mobile-base-imager/releases/download/v$Version/install-mobile-base-imager.sh"
+  linuxInstallerBytes = if (Test-Path -LiteralPath $LinuxInstaller) { (Get-Item -LiteralPath $LinuxInstaller).Length } else { 0 }
+  linuxInstallerSha256 = if (Test-Path -LiteralPath $LinuxInstaller) { (Get-FileHash -Algorithm SHA256 -LiteralPath $LinuxInstaller).Hash } else { "" }
   generatedAt = (Get-Date).ToUniversalTime().ToString("yyyy-MM-ddTHH:mm:ssZ")
 }
 [IO.File]::WriteAllText((Join-Path $Docs "release-manifest.json"), ($manifest | ConvertTo-Json -Depth 5) + "`n", [Text.UTF8Encoding]::new($false))
