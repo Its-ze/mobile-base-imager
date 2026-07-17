@@ -1,0 +1,23 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<component type="desktop-application">
+  <id>dev.itsz.MobileBaseImager</id>
+  <name>Mobile Base Imager</name>
+  <summary>Flash, verify, back up, and format removable media</summary>
+  <metadata_license>MIT</metadata_license>
+  <project_license>MIT</project_license>
+  <developer id="dev.itsz">
+    <name>Zach Skeens</name>
+  </developer>
+  <description>
+    <p>Mobile Base Imager is a removable-media imaging workspace for Raspberry Pi and Mobile Base appliances with target filtering, compressed-image support, readback verification, backups, and formatting.</p>
+  </description>
+  <launchable type="desktop-id">mobile-base-imager.desktop</launchable>
+  <url type="homepage">https://its-ze.github.io/mobile-base-imager/</url>
+  <provides>
+    <binary>mobile-base-imager</binary>
+  </provides>
+  <content_rating type="oars-1.1"/>
+  <releases>
+    <release version="0.3.2" date="2026-07-17"/>
+  </releases>
+</component>

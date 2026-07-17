@@ -10,23 +10,26 @@ Copy-Item -LiteralPath (Join-Path $Root "assets\mobile-base-imager-mark.svg") -D
 if (Test-Path -LiteralPath (Join-Path $Root "output\mobile-base-imager-ui.png")) {
   Copy-Item -LiteralPath (Join-Path $Root "output\mobile-base-imager-ui.png") -Destination (Join-Path $Assets "mobile-base-imager-ui.png") -Force
 }
-$Image = Join-Path $Root "dist\mobile-base-pi5-0.8.0.img.zst"
+$ImageVersion = "0.8.1"
+$ImageAsset = "mobile-base-pi5-$ImageVersion.img.zst"
+$Image = Join-Path $Root "dist\$ImageAsset"
 $Exe = Join-Path $Root "dist\mobile-base-imager-v$Version-windows-x64.exe"
 $Zip = Join-Path $Root "dist\mobile-base-imager-v$Version-windows-x64.zip"
 $LinuxBinary = Join-Path $Root "dist\mobile-base-imager-v$Version-linux-x86_64"
 $LinuxTar = Join-Path $Root "dist\mobile-base-imager-v$Version-linux-x86_64.tar.gz"
 $LinuxDeb = Join-Path $Root "dist\mobile-base-imager_$($Version)_linux_amd64.deb"
+$LinuxAppImage = Join-Path $Root "dist\Mobile_Base_Imager-$Version-x86_64.AppImage"
 $LinuxInstaller = Join-Path $Root "dist\install-mobile-base-imager.sh"
 if (Test-Path -LiteralPath $LinuxInstaller) {
   Copy-Item -LiteralPath $LinuxInstaller -Destination (Join-Path $Docs "install-mobile-base-imager.sh") -Force
 }
 $manifest = [ordered]@{
   appVersion = $Version
-  imageVersion = "0.8.0"
-  imageAsset = "mobile-base-pi5-0.8.0.img.zst"
-  imageUrl = "https://github.com/Its-ze/mobile-base-imager/releases/download/v$Version/mobile-base-pi5-0.8.0.img.zst"
-  imageBytes = if (Test-Path -LiteralPath $Image) { (Get-Item -LiteralPath $Image).Length } else { 516990112 }
-  imageSha256 = "383F69782A91272B04D3C1AA396D5550DF952B4264112CC808865EA35D67505B"
+  imageVersion = $ImageVersion
+  imageAsset = $ImageAsset
+  imageUrl = "https://github.com/Its-ze/mobile-base-imager/releases/download/v$Version/$ImageAsset"
+  imageBytes = if (Test-Path -LiteralPath $Image) { (Get-Item -LiteralPath $Image).Length } else { 0 }
+  imageSha256 = if (Test-Path -LiteralPath $Image) { (Get-FileHash -Algorithm SHA256 -LiteralPath $Image).Hash } else { "" }
   exeUrl = "https://github.com/Its-ze/mobile-base-imager/releases/download/v$Version/mobile-base-imager-v$Version-windows-x64.exe"
   exeBytes = if (Test-Path -LiteralPath $Exe) { (Get-Item -LiteralPath $Exe).Length } else { 0 }
   exeSha256 = if (Test-Path -LiteralPath $Exe) { (Get-FileHash -Algorithm SHA256 -LiteralPath $Exe).Hash } else { "" }
@@ -40,6 +43,9 @@ $manifest = [ordered]@{
   linuxDebUrl = "https://github.com/Its-ze/mobile-base-imager/releases/download/v$Version/mobile-base-imager_$($Version)_linux_amd64.deb"
   linuxDebBytes = if (Test-Path -LiteralPath $LinuxDeb) { (Get-Item -LiteralPath $LinuxDeb).Length } else { 0 }
   linuxDebSha256 = if (Test-Path -LiteralPath $LinuxDeb) { (Get-FileHash -Algorithm SHA256 -LiteralPath $LinuxDeb).Hash } else { "" }
+  linuxAppImageUrl = "https://github.com/Its-ze/mobile-base-imager/releases/download/v$Version/Mobile_Base_Imager-$Version-x86_64.AppImage"
+  linuxAppImageBytes = if (Test-Path -LiteralPath $LinuxAppImage) { (Get-Item -LiteralPath $LinuxAppImage).Length } else { 0 }
+  linuxAppImageSha256 = if (Test-Path -LiteralPath $LinuxAppImage) { (Get-FileHash -Algorithm SHA256 -LiteralPath $LinuxAppImage).Hash } else { "" }
   linuxInstallerUrl = "https://github.com/Its-ze/mobile-base-imager/releases/download/v$Version/install-mobile-base-imager.sh"
   linuxInstallerBytes = if (Test-Path -LiteralPath $LinuxInstaller) { (Get-Item -LiteralPath $LinuxInstaller).Length } else { 0 }
   linuxInstallerSha256 = if (Test-Path -LiteralPath $LinuxInstaller) { (Get-FileHash -Algorithm SHA256 -LiteralPath $LinuxInstaller).Hash } else { "" }

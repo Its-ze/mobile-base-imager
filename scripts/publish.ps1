@@ -1,7 +1,8 @@
 param(
   [string]$Owner = "Its-ze",
   [string]$Repo = "mobile-base-imager",
-  [string]$Version = ""
+  [string]$Version = "",
+  [switch]$SkipBuild
 )
 
 $ErrorActionPreference = "Stop"
@@ -11,8 +12,12 @@ Push-Location $Root
 try {
   & gh auth status 2>$null | Out-Null
   if ($LASTEXITCODE -ne 0) { throw "GitHub CLI is not authenticated. Run gh auth login first." }
-  & (Join-Path $PSScriptRoot "build-release.ps1") -Version $Version
-  & (Join-Path $PSScriptRoot "build-linux.ps1") -Version $Version
+  if ($SkipBuild) {
+    & (Join-Path $PSScriptRoot "build-linux.ps1") -Version $Version -SkipCompile
+  } else {
+    & (Join-Path $PSScriptRoot "build-release.ps1") -Version $Version
+    & (Join-Path $PSScriptRoot "build-linux.ps1") -Version $Version
+  }
   if (-not (Test-Path -LiteralPath (Join-Path $Root ".git"))) {
     & git init -b main
     & git config user.name "Zach Skeens"
@@ -43,7 +48,14 @@ try {
   $tag = "v$Version"
   $releaseTags = @((& gh release list --repo "$Owner/$Repo" --limit 100 --json tagName | ConvertFrom-Json) | ForEach-Object { $_.tagName })
   if ($releaseTags -notcontains $tag) {
-    & gh release create $tag --repo "$Owner/$Repo" --title "Mobile Base Imager $tag" --notes "Native Windows and Linux imaging workspace with a one-command checksum-verifying Linux shell installer, safe removable-drive filtering, five image formats, verified downloads, raw flashing, full readback, verify-only comparison, compressed backups, formatting, checksums, cache tools, and operation logs."
+    $releaseNotes = @"
+Mobile Base Imager $tag adds a Fedora-compatible AppImage alongside the Windows, portable Linux, Debian, and shell-installer builds.
+
+This release also includes Mobile Base Pi image 0.8.1. It corrects the Raspberry Pi boot configuration to mount the ROOT and BOOT filesystem labels directly, fixing the previous `/dev/disk/by-slot/system` initramfs boot failure.
+
+The imager retains safe removable-drive filtering, verified downloads, raw flashing, full readback, verify-only comparison, compressed backups, formatting, checksums, cache tools, and operation logs.
+"@
+    & gh release create $tag --repo "$Owner/$Repo" --title "Mobile Base Imager $tag" --notes $releaseNotes
     if ($LASTEXITCODE -ne 0) { throw "Could not create the GitHub release." }
   }
   $assets = @(
@@ -52,9 +64,10 @@ try {
     "dist\mobile-base-imager-v$Version-linux-x86_64",
     "dist\mobile-base-imager-v$Version-linux-x86_64.tar.gz",
     "dist\mobile-base-imager_$($Version)_linux_amd64.deb",
+    "dist\Mobile_Base_Imager-$Version-x86_64.AppImage",
     "dist\install-mobile-base-imager.sh",
-    "dist\mobile-base-pi5-0.8.0.img.zst",
-    "dist\mobile-base-pi5-0.8.0.img.zst.sha256",
+    "dist\mobile-base-pi5-0.8.1.img.zst",
+    "dist\mobile-base-pi5-0.8.1.img.zst.sha256",
     "dist\checksums.txt"
   )
   & gh release upload $tag @assets --repo "$Owner/$Repo" --clobber

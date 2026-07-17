@@ -6,7 +6,15 @@ The Linux build supports the same flash, verify, full-backup, format, download, 
 
 - Ubuntu 24.04 or newer
 - Debian 13 or newer
+- Fedora 40 or newer
 - x86_64 desktop Linux distributions with glibc 2.39 or newer
+
+## Run the AppImage on Fedora
+
+```bash
+chmod +x Mobile_Base_Imager-VERSION-x86_64.AppImage
+./Mobile_Base_Imager-VERSION-x86_64.AppImage
+```
 
 ## Install the DEB
 

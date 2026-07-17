@@ -35,12 +35,20 @@ GitHub releases include:
 - standalone Windows x64 EXE and portable ZIP;
 - standalone Linux x86_64 binary and portable `.tar.gz`;
 - Debian/Ubuntu amd64 `.deb` package;
+- Fedora-compatible x86_64 `.AppImage` package;
 - a standalone checksum-verifying Linux `.sh` installer;
 - the Mobile Base Raspberry Pi image and published checksums.
 
 ## Linux installation
 
 Ubuntu 24.04+, Debian 13+, and compatible x86_64 distributions with glibc 2.39+ are supported.
+
+On Fedora 40 or newer, download the AppImage, make it executable, and run it:
+
+```bash
+chmod +x Mobile_Base_Imager-0.3.2-x86_64.AppImage
+./Mobile_Base_Imager-0.3.2-x86_64.AppImage
+```
 
 Download and run the standalone installer:
 
@@ -52,7 +60,7 @@ bash install-mobile-base-imager.sh
 The installer downloads the matching Debian package, verifies its published SHA-256, installs required system packages through APT, creates the desktop entry, and runs the built-in self-test.
 
 ```bash
-sudo apt install ./mobile-base-imager_0.3.1_linux_amd64.deb
+sudo apt install ./mobile-base-imager_0.3.2_linux_amd64.deb
 ```
 
 The portable Linux archive can run without installation. Extract it and launch `./mobile-base-imager`, or run `sudo ./install.sh` to add the desktop entry.
