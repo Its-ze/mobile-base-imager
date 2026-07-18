@@ -465,21 +465,7 @@ def clean_disk(disk: Disk) -> None:
         unmount_linux_disk(disk)
         run_linux_command(["wipefs", "--all", disk.device_path])
         return
-    # Keep Windows from discovering and mounting partitions while their table is
-    # still being written. Auto-mounting a half-written image can block the next
-    # raw WriteFile call indefinitely on some USB card readers.
-    run_diskpart([
-        f"select disk {disk.number}",
-        "attributes disk clear readonly",
-        "clean",
-        "offline disk",
-        "exit",
-    ])
-
-
-def restore_disk_online(disk: Disk) -> None:
-    if os.name == "nt":
-        run_diskpart([f"select disk {disk.number}", "online disk", "exit"])
+    run_diskpart([f"select disk {disk.number}", "attributes disk clear readonly", "clean", "exit"])
 
 
 if os.name == "nt":
@@ -508,7 +494,7 @@ def _open_physical_drive(disk: Disk, write: bool = False):
     if os.name != "nt":
         return open(disk.device_path, "r+b" if write else "rb", buffering=0)
     access = GENERIC_READ | (GENERIC_WRITE if write else 0)
-    share_mode = 0 if write else FILE_SHARE_READ | FILE_SHARE_WRITE
+    share_mode = FILE_SHARE_READ | FILE_SHARE_WRITE
     flags = FILE_FLAG_SEQUENTIAL_SCAN | (FILE_FLAG_WRITE_THROUGH if write else 0)
     handle = kernel32.CreateFileW(
         disk.device_path,
@@ -558,10 +544,14 @@ def _flush_handle(handle) -> None:
 
 
 def _seek_handle_start(handle) -> None:
+    _seek_handle(handle, 0)
+
+
+def _seek_handle(handle, offset: int) -> None:
     if os.name != "nt":
-        handle.seek(0)
+        handle.seek(offset)
         return
-    if not kernel32.SetFilePointerEx(handle, 0, None, FILE_BEGIN):
+    if not kernel32.SetFilePointerEx(handle, offset, None, FILE_BEGIN):
         raise ctypes.WinError(ctypes.get_last_error())
 
 
@@ -606,19 +596,31 @@ def flash_and_verify(image: Path, disk: Disk, progress: Progress, verify: bool =
         raise RuntimeError(f"Image is {human_size(image_size)}, but target capacity is only {disk.size_label}")
     if path_is_on_disk(image, disk):
         raise RuntimeError("The source image is stored on the selected target disk; move it before flashing")
+    progress("PREPARING TARGET", 0, 0)
     clean_disk(disk)
+    progress("OPENING TARGET", 0, 0)
     handle = None
-    operation_failed = False
     try:
         handle = _open_physical_drive(disk, write=True)
         image_digest = hashlib.sha256()
-        done = 0
+        written = 0
         with image.open("rb") as source:
+            # Defer the partition table and filesystem headers until every other
+            # byte is on the card. Windows cannot auto-mount a half-written Pi
+            # image and interfere with the active raw write when no valid header
+            # exists yet.
+            first_chunk = source.read(CHUNK_SIZE)
+            image_digest.update(first_chunk)
+            _seek_handle(handle, len(first_chunk))
             while chunk := source.read(CHUNK_SIZE):
                 _write_handle(handle, chunk)
                 image_digest.update(chunk)
-                done += len(chunk)
-                progress("FLASHING IMAGE", done, image_size)
+                written += len(chunk)
+                progress("FLASHING IMAGE", written, image_size)
+            _seek_handle_start(handle)
+            _write_handle(handle, first_chunk)
+            written += len(first_chunk)
+            progress("FLASHING IMAGE", written, image_size)
         _flush_handle(handle)
         expected = image_digest.hexdigest().upper()
         if not verify:
@@ -637,17 +639,9 @@ def flash_and_verify(image: Path, disk: Disk, progress: Progress, verify: bool =
         if actual != expected:
             raise RuntimeError(f"Readback verification failed. Expected {expected}, received {actual}.")
         return expected
-    except BaseException:
-        operation_failed = True
-        raise
     finally:
         if handle is not None:
             _close_handle(handle)
-        try:
-            restore_disk_online(disk)
-        except Exception:
-            if not operation_failed:
-                raise
 
 
 def backup_disk(disk: Disk, destination: Path, progress: Progress, compress: bool = True) -> BackupResult:

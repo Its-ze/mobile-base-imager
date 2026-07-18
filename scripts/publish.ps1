@@ -49,7 +49,7 @@ try {
   $releaseTags = @((& gh release list --repo "$Owner/$Repo" --limit 100 --json tagName | ConvertFrom-Json) | ForEach-Object { $_.tagName })
   if ($releaseTags -notcontains $tag) {
     $releaseNotes = @"
-Mobile Base Imager $tag fixes Windows raw flashing stalls caused by Windows auto-mounting Raspberry Pi partitions while an image is still being written. Targets now remain offline during the complete write and verification cycle, use write-through exclusive access, and return online after completion or failure.
+Mobile Base Imager $tag fixes removable-reader stalls by writing the Raspberry Pi partition table and filesystem headers last. Windows cannot auto-mount the target until the complete image body has been written, and write-through access keeps progress tied to real media writes.
 
 This release includes Mobile Base Pi image 0.9.0 with its visible, opt-in outbound management agent. Enrolled units can report diagnostics and receive audited, expiring commands through the authenticated Unraid home base at https://mobilebase.itsz.studio without accepting unsolicited inbound Internet connections.
 

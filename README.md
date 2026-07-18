@@ -46,8 +46,8 @@ Ubuntu 24.04+, Debian 13+, and compatible x86_64 distributions with glibc 2.39+ 
 On Fedora 40 or newer, download the AppImage, make it executable, and run it:
 
 ```bash
-chmod +x Mobile_Base_Imager-0.3.4-x86_64.AppImage
-./Mobile_Base_Imager-0.3.4-x86_64.AppImage
+chmod +x Mobile_Base_Imager-0.3.5-x86_64.AppImage
+./Mobile_Base_Imager-0.3.5-x86_64.AppImage
 ```
 
 Download and run the standalone installer:
@@ -60,7 +60,7 @@ bash install-mobile-base-imager.sh
 The installer downloads the matching Debian package, verifies its published SHA-256, installs required system packages through APT, creates the desktop entry, and runs the built-in self-test.
 
 ```bash
-sudo apt install ./mobile-base-imager_0.3.4_linux_amd64.deb
+sudo apt install ./mobile-base-imager_0.3.5_linux_amd64.deb
 ```
 
 The portable Linux archive can run without installation. Extract it and launch `./mobile-base-imager`, or run `sudo ./install.sh` to add the desktop entry.

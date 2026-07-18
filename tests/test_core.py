@@ -146,13 +146,13 @@ def test_format_sanitizes_label(monkeypatch):
     assert 'format fs=fat32 quick label="MOBILE BASE"' in captured
 
 
-def test_windows_raw_flash_clean_keeps_target_offline(monkeypatch):
+def test_windows_raw_flash_clean_removes_existing_partitions(monkeypatch):
     if os.name != "nt":
         pytest.skip("Windows DiskPart raw-write protection")
     captured = []
     monkeypatch.setattr(core, "run_diskpart", lambda lines: captured.extend(lines))
     core.clean_disk(disk(bus_type=7, bus_name="USB", pnp_id="USBSTOR\\DISK"))
-    assert captured == ["select disk 3", "attributes disk clear readonly", "clean", "offline disk", "exit"]
+    assert captured == ["select disk 3", "attributes disk clear readonly", "clean", "exit"]
 
 
 def test_diskpart_surfaces_virtual_disk_service_errors(monkeypatch):
@@ -164,20 +164,35 @@ def test_diskpart_surfaces_virtual_disk_service_errors(monkeypatch):
         core.run_diskpart(["list disk", "exit"])
 
 
-def test_flash_restores_windows_disk_online_when_open_fails(tmp_path: Path, monkeypatch):
-    if os.name != "nt":
-        pytest.skip("Windows raw-write recovery")
+def test_flash_writes_partition_header_last(tmp_path: Path, monkeypatch):
     image = tmp_path / "source.img"
-    image.write_bytes(b"image")
+    image.write_bytes(b"HEADpayload")
     target = disk(bus_type=7, bus_name="USB", pnp_id="USBSTOR\\DISK")
-    restored = []
+    cursor = 0
+    writes = []
+    handle = object()
+
+    def seek(_handle, offset):
+        nonlocal cursor
+        cursor = offset
+
+    def write(_handle, payload):
+        nonlocal cursor
+        writes.append((cursor, payload))
+        cursor += len(payload)
+
+    monkeypatch.setattr(core, "CHUNK_SIZE", 4)
     monkeypatch.setattr(core, "path_is_on_disk", lambda *_args: False)
     monkeypatch.setattr(core, "clean_disk", lambda _disk: None)
-    monkeypatch.setattr(core, "_open_physical_drive", lambda *_args, **_kwargs: (_ for _ in ()).throw(RuntimeError("open failed")))
-    monkeypatch.setattr(core, "restore_disk_online", lambda item: restored.append(item.number))
-    with pytest.raises(RuntimeError, match="open failed"):
-        core.flash_and_verify(image, target, progress)
-    assert restored == [3]
+    monkeypatch.setattr(core, "_open_physical_drive", lambda *_args, **_kwargs: handle)
+    monkeypatch.setattr(core, "_seek_handle", seek)
+    monkeypatch.setattr(core, "_seek_handle_start", lambda item: seek(item, 0))
+    monkeypatch.setattr(core, "_write_handle", write)
+    monkeypatch.setattr(core, "_flush_handle", lambda _handle: None)
+    monkeypatch.setattr(core, "_close_handle", lambda _handle: None)
+    digest = core.flash_and_verify(image, target, progress, verify=False)
+    assert digest == sha256_file(image)
+    assert writes == [(4, b"payl"), (8, b"oad"), (0, b"HEAD")]
 
 
 def test_flash_refuses_image_stored_on_target(tmp_path: Path, monkeypatch):
