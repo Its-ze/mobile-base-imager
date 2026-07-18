@@ -38,7 +38,7 @@ $assets = @(
   (Join-Path $Dist "mobile-base-imager_$($Version)_linux_amd64.deb"),
   (Join-Path $Dist "Mobile_Base_Imager-$Version-x86_64.AppImage"),
   (Join-Path $Dist "install-mobile-base-imager.sh"),
-  (Join-Path $Dist "mobile-base-pi5-0.9.0.img.zst")
+  (Join-Path $Dist "mobile-base-pi5-0.9.1.img.zst")
 ) | Where-Object { Test-Path -LiteralPath $_ }
 $lines = foreach ($asset in $assets) {
   $hash = (Get-FileHash -Algorithm SHA256 -LiteralPath $asset).Hash.ToLowerInvariant()

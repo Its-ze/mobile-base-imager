@@ -49,9 +49,9 @@ try {
   $releaseTags = @((& gh release list --repo "$Owner/$Repo" --limit 100 --json tagName | ConvertFrom-Json) | ForEach-Object { $_.tagName })
   if ($releaseTags -notcontains $tag) {
     $releaseNotes = @"
-Mobile Base Imager $tag fixes removable-reader stalls by writing the Raspberry Pi partition table and filesystem headers last. Windows cannot auto-mount the target until the complete image body has been written, and write-through access keeps progress tied to real media writes.
+Mobile Base Imager $tag includes the removable-reader stall fix that writes Raspberry Pi partition and filesystem headers only after the image body is safely on the target.
 
-This release includes Mobile Base Pi image 0.9.0 with its visible, opt-in outbound management agent. Enrolled units can report diagnostics and receive audited, expiring commands through the authenticated Unraid home base at https://mobilebase.itsz.studio without accepting unsolicited inbound Internet connections.
+This release includes Mobile Base Pi image 0.9.1 with automatic DHCP Ethernet, pairing-code-gated Ethernet-only setup, browser control on port 8788, and a full pinned SSH shell on port 22. Wi-Fi setup remains available as an optional fallback. The visible, opt-in outbound management agent can report diagnostics and receive audited, expiring commands through the authenticated Unraid home base at https://mobilebase.itsz.studio without accepting unsolicited inbound Internet connections.
 
 The imager retains safe removable-drive filtering, verified downloads, raw flashing, full readback, verify-only comparison, compressed backups, formatting, checksums, cache tools, and operation logs.
 "@
@@ -66,8 +66,8 @@ The imager retains safe removable-drive filtering, verified downloads, raw flash
     "dist\mobile-base-imager_$($Version)_linux_amd64.deb",
     "dist\Mobile_Base_Imager-$Version-x86_64.AppImage",
     "dist\install-mobile-base-imager.sh",
-    "dist\mobile-base-pi5-0.9.0.img.zst",
-    "dist\mobile-base-pi5-0.9.0.img.zst.sha256",
+    "dist\mobile-base-pi5-0.9.1.img.zst",
+    "dist\mobile-base-pi5-0.9.1.img.zst.sha256",
     "dist\checksums.txt"
   )
   & gh release upload $tag @assets --repo "$Owner/$Repo" --clobber

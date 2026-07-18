@@ -38,11 +38,11 @@ from app.core import (
 PRODUCT = "Mobile Base Imager"
 MANIFEST_URL = "https://its-ze.github.io/mobile-base-imager/release-manifest.json"
 FALLBACK_MANIFEST = {
-    "imageVersion": "0.9.0",
-    "imageAsset": "mobile-base-pi5-0.9.0.img.zst",
-    "imageUrl": "https://github.com/Its-ze/mobile-base-imager/releases/download/v0.3.5/mobile-base-pi5-0.9.0.img.zst",
-    "imageBytes": 517431097,
-    "imageSha256": "7088484FD2690FD2CAA47A62CF1184727DB313C7C295C3543E7ED636DBB01E4B",
+    "imageVersion": "0.9.1",
+    "imageAsset": "mobile-base-pi5-0.9.1.img.zst",
+    "imageUrl": "https://github.com/Its-ze/mobile-base-imager/releases/download/v0.3.6/mobile-base-pi5-0.9.1.img.zst",
+    "imageBytes": 517582438,
+    "imageSha256": "2D270352A645CBAE44AF69ED855A58CB9DB58D24ADA29D7C2329C365A54FC177",
 }
 BG = "#071013"
 NAV = "#09171b"
