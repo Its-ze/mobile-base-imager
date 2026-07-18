@@ -49,7 +49,7 @@ try {
   $releaseTags = @((& gh release list --repo "$Owner/$Repo" --limit 100 --json tagName | ConvertFrom-Json) | ForEach-Object { $_.tagName })
   if ($releaseTags -notcontains $tag) {
     $releaseNotes = @"
-Mobile Base Imager $tag refreshes the Windows, Fedora AppImage, portable Linux, Debian, and shell-installer builds for Mobile Base 0.9.0.
+Mobile Base Imager $tag fixes Windows raw flashing stalls caused by Windows auto-mounting Raspberry Pi partitions while an image is still being written. Targets now remain offline during the complete write and verification cycle, use write-through exclusive access, and return online after completion or failure.
 
 This release includes Mobile Base Pi image 0.9.0 with its visible, opt-in outbound management agent. Enrolled units can report diagnostics and receive audited, expiring commands through the authenticated Unraid home base at https://mobilebase.itsz.studio without accepting unsolicited inbound Internet connections.
 

@@ -10,7 +10,22 @@ if (-not $Version) { $Version = (Get-Content -LiteralPath (Join-Path $Root "VERS
 if (-not $SkipCompile) {
   $LinuxRoot = (& wsl.exe -d $Distro -- wslpath -a $Root).Trim()
   if (-not $LinuxRoot) { throw "Could not resolve the project path inside WSL." }
-  & wsl.exe -d $Distro -- bash "$LinuxRoot/scripts/build-linux.sh" $LinuxRoot $Version
+  $LinuxScript = 'bash "$MBI_LINUX_ROOT/scripts/build-linux.sh" "$MBI_LINUX_ROOT" "$MBI_VERSION"'
+  $Payload = [Convert]::ToBase64String([Text.Encoding]::UTF8.GetBytes($LinuxScript))
+  $PreviousRoot = [Environment]::GetEnvironmentVariable("MBI_LINUX_ROOT", "Process")
+  $PreviousVersion = [Environment]::GetEnvironmentVariable("MBI_VERSION", "Process")
+  $PreviousWslEnv = [Environment]::GetEnvironmentVariable("WSLENV", "Process")
+  try {
+    [Environment]::SetEnvironmentVariable("MBI_LINUX_ROOT", $LinuxRoot, "Process")
+    [Environment]::SetEnvironmentVariable("MBI_VERSION", $Version, "Process")
+    $Forwarded = @("MBI_LINUX_ROOT", "MBI_VERSION", $PreviousWslEnv) | Where-Object { $_ }
+    [Environment]::SetEnvironmentVariable("WSLENV", ($Forwarded -join ":"), "Process")
+    & wsl.exe -d $Distro -- bash -lc "echo $Payload | base64 -d | bash"
+  } finally {
+    [Environment]::SetEnvironmentVariable("MBI_LINUX_ROOT", $PreviousRoot, "Process")
+    [Environment]::SetEnvironmentVariable("MBI_VERSION", $PreviousVersion, "Process")
+    [Environment]::SetEnvironmentVariable("WSLENV", $PreviousWslEnv, "Process")
+  }
   if ($LASTEXITCODE -ne 0) { throw "Linux release build failed." }
 }
 

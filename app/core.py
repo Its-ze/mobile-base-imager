@@ -376,7 +376,14 @@ def run_diskpart(lines: list[str]) -> str:
             timeout=300,
             creationflags=subprocess.CREATE_NO_WINDOW if os.name == "nt" else 0,
         )
-        if completed.returncode:
+        output = completed.stdout.strip()
+        failed = (
+            completed.returncode
+            or "diskpart has encountered an error" in output.lower()
+            or "virtual disk service error" in output.lower()
+            or "the selected disk is not valid" in output.lower()
+        )
+        if failed:
             raise RuntimeError(completed.stdout.strip() or completed.stderr.strip() or "DiskPart failed")
         return completed.stdout
     finally:
@@ -458,7 +465,21 @@ def clean_disk(disk: Disk) -> None:
         unmount_linux_disk(disk)
         run_linux_command(["wipefs", "--all", disk.device_path])
         return
-    run_diskpart([f"select disk {disk.number}", "attributes disk clear readonly", "clean", "exit"])
+    # Keep Windows from discovering and mounting partitions while their table is
+    # still being written. Auto-mounting a half-written image can block the next
+    # raw WriteFile call indefinitely on some USB card readers.
+    run_diskpart([
+        f"select disk {disk.number}",
+        "attributes disk clear readonly",
+        "clean",
+        "offline disk",
+        "exit",
+    ])
+
+
+def restore_disk_online(disk: Disk) -> None:
+    if os.name == "nt":
+        run_diskpart([f"select disk {disk.number}", "online disk", "exit"])
 
 
 if os.name == "nt":
@@ -470,6 +491,7 @@ if os.name == "nt":
     FILE_SHARE_WRITE = 0x00000002
     OPEN_EXISTING = 3
     FILE_FLAG_SEQUENTIAL_SCAN = 0x08000000
+    FILE_FLAG_WRITE_THROUGH = 0x80000000
     FILE_BEGIN = 0
     INVALID_HANDLE_VALUE = ctypes.c_void_p(-1).value
     kernel32 = ctypes.WinDLL("kernel32", use_last_error=True)
@@ -486,13 +508,15 @@ def _open_physical_drive(disk: Disk, write: bool = False):
     if os.name != "nt":
         return open(disk.device_path, "r+b" if write else "rb", buffering=0)
     access = GENERIC_READ | (GENERIC_WRITE if write else 0)
+    share_mode = 0 if write else FILE_SHARE_READ | FILE_SHARE_WRITE
+    flags = FILE_FLAG_SEQUENTIAL_SCAN | (FILE_FLAG_WRITE_THROUGH if write else 0)
     handle = kernel32.CreateFileW(
         disk.device_path,
         access,
-        FILE_SHARE_READ | FILE_SHARE_WRITE,
+        share_mode,
         None,
         OPEN_EXISTING,
-        FILE_FLAG_SEQUENTIAL_SCAN,
+        flags,
         None,
     )
     if handle == INVALID_HANDLE_VALUE:
@@ -583,9 +607,11 @@ def flash_and_verify(image: Path, disk: Disk, progress: Progress, verify: bool =
     if path_is_on_disk(image, disk):
         raise RuntimeError("The source image is stored on the selected target disk; move it before flashing")
     clean_disk(disk)
-    handle = _open_physical_drive(disk, write=True)
-    image_digest = hashlib.sha256()
+    handle = None
+    operation_failed = False
     try:
+        handle = _open_physical_drive(disk, write=True)
+        image_digest = hashlib.sha256()
         done = 0
         with image.open("rb") as source:
             while chunk := source.read(CHUNK_SIZE):
@@ -611,8 +637,17 @@ def flash_and_verify(image: Path, disk: Disk, progress: Progress, verify: bool =
         if actual != expected:
             raise RuntimeError(f"Readback verification failed. Expected {expected}, received {actual}.")
         return expected
+    except BaseException:
+        operation_failed = True
+        raise
     finally:
-        _close_handle(handle)
+        if handle is not None:
+            _close_handle(handle)
+        try:
+            restore_disk_online(disk)
+        except Exception:
+            if not operation_failed:
+                raise
 
 
 def backup_disk(disk: Disk, destination: Path, progress: Progress, compress: bool = True) -> BackupResult:

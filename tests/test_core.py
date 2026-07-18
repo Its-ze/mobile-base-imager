@@ -146,6 +146,40 @@ def test_format_sanitizes_label(monkeypatch):
     assert 'format fs=fat32 quick label="MOBILE BASE"' in captured
 
 
+def test_windows_raw_flash_clean_keeps_target_offline(monkeypatch):
+    if os.name != "nt":
+        pytest.skip("Windows DiskPart raw-write protection")
+    captured = []
+    monkeypatch.setattr(core, "run_diskpart", lambda lines: captured.extend(lines))
+    core.clean_disk(disk(bus_type=7, bus_name="USB", pnp_id="USBSTOR\\DISK"))
+    assert captured == ["select disk 3", "attributes disk clear readonly", "clean", "offline disk", "exit"]
+
+
+def test_diskpart_surfaces_virtual_disk_service_errors(monkeypatch):
+    if os.name != "nt":
+        pytest.skip("Windows DiskPart error handling")
+    result = type("Result", (), {"returncode": 0, "stdout": "Virtual Disk Service error: operation failed", "stderr": ""})()
+    monkeypatch.setattr(core.subprocess, "run", lambda *_args, **_kwargs: result)
+    with pytest.raises(RuntimeError, match="Virtual Disk Service error"):
+        core.run_diskpart(["list disk", "exit"])
+
+
+def test_flash_restores_windows_disk_online_when_open_fails(tmp_path: Path, monkeypatch):
+    if os.name != "nt":
+        pytest.skip("Windows raw-write recovery")
+    image = tmp_path / "source.img"
+    image.write_bytes(b"image")
+    target = disk(bus_type=7, bus_name="USB", pnp_id="USBSTOR\\DISK")
+    restored = []
+    monkeypatch.setattr(core, "path_is_on_disk", lambda *_args: False)
+    monkeypatch.setattr(core, "clean_disk", lambda _disk: None)
+    monkeypatch.setattr(core, "_open_physical_drive", lambda *_args, **_kwargs: (_ for _ in ()).throw(RuntimeError("open failed")))
+    monkeypatch.setattr(core, "restore_disk_online", lambda item: restored.append(item.number))
+    with pytest.raises(RuntimeError, match="open failed"):
+        core.flash_and_verify(image, target, progress)
+    assert restored == [3]
+
+
 def test_flash_refuses_image_stored_on_target(tmp_path: Path, monkeypatch):
     image = tmp_path / "source.img"
     image.write_bytes(b"image")
