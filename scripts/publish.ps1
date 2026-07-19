@@ -8,6 +8,24 @@ param(
 $ErrorActionPreference = "Stop"
 $Root = Split-Path -Parent $PSScriptRoot
 if (-not $Version) { $Version = (Get-Content -LiteralPath (Join-Path $Root "VERSION") -Raw).Trim() }
+$PreviousGhToken = [Environment]::GetEnvironmentVariable("GH_TOKEN", "Process")
+if ([string]::IsNullOrWhiteSpace($PreviousGhToken)) {
+  $TokenFile = [Environment]::GetEnvironmentVariable("GITHUB_TOKEN_FILE", "Process")
+  if (-not [string]::IsNullOrWhiteSpace($TokenFile) -and (Test-Path -LiteralPath $TokenFile)) {
+    $StoredToken = Import-Clixml -LiteralPath $TokenFile
+    if ($StoredToken -isnot [securestring]) { throw "GITHUB_TOKEN_FILE must contain an encrypted SecureString." }
+    $Bstr = [Runtime.InteropServices.Marshal]::SecureStringToBSTR($StoredToken)
+    try {
+      [Environment]::SetEnvironmentVariable(
+        "GH_TOKEN",
+        [Runtime.InteropServices.Marshal]::PtrToStringBSTR($Bstr),
+        "Process"
+      )
+    } finally {
+      [Runtime.InteropServices.Marshal]::ZeroFreeBSTR($Bstr)
+    }
+  }
+}
 Push-Location $Root
 try {
   & gh auth status 2>$null | Out-Null
@@ -49,9 +67,9 @@ try {
   $releaseTags = @((& gh release list --repo "$Owner/$Repo" --limit 100 --json tagName | ConvertFrom-Json) | ForEach-Object { $_.tagName })
   if ($releaseTags -notcontains $tag) {
     $releaseNotes = @"
-Mobile Base Imager $tag publishes the verified Mobile Base 0.9.3 appliance image for Raspberry Pi 5.
+Mobile Base Imager $tag publishes the verified Mobile Base 0.9.4 appliance image for Raspberry Pi 5.
 
-Mobile Base 0.9.3 fixes first-boot ordering so the removable BOOT partition is mounted before zero-touch hub enrollment and operator SSH-key import run. Provisioned units receive key-only `mobileadmin` access with passwordless administrative control, and the one-time enrollment files are consumed after successful setup. Enrollment remains single-use and outbound-only. The downloadable image is generic and contains no private enrollment phrase, administrator token, or operator key.
+Mobile Base 0.9.4 adds plug-and-play USB NMEA GPS detection, supervised gpsd worker startup, automatic mission creation or resume, Raspberry Pi 5 Bluetooth firmware, and reboot-persistent local BLE discovery/status/control. Provisioned units retain key-only `mobileadmin` access, single-use outbound Hub enrollment, and no embedded private credential in the public image.
 
 The imager retains safe removable-drive filtering, verified downloads, raw flashing, full readback, verify-only comparison, compressed backups, formatting, checksums, cache tools, and operation logs.
 "@
@@ -66,8 +84,8 @@ The imager retains safe removable-drive filtering, verified downloads, raw flash
     "dist\mobile-base-imager_$($Version)_linux_amd64.deb",
     "dist\Mobile_Base_Imager-$Version-x86_64.AppImage",
     "dist\install-mobile-base-imager.sh",
-    "dist\mobile-base-pi5-0.9.3.img.zst",
-    "dist\mobile-base-pi5-0.9.3.img.zst.sha256",
+    "dist\mobile-base-pi5-0.9.4.img.zst",
+    "dist\mobile-base-pi5-0.9.4.img.zst.sha256",
     "dist\checksums.txt"
   )
   & gh release upload $tag @assets --repo "$Owner/$Repo" --clobber
@@ -76,5 +94,6 @@ The imager retains safe removable-drive filtering, verified downloads, raw flash
   Write-Host "Download page: https://$($Owner.ToLowerInvariant()).github.io/$Repo/"
   Write-Host "Release: https://github.com/$Owner/$Repo/releases/tag/$tag"
 } finally {
+  [Environment]::SetEnvironmentVariable("GH_TOKEN", $PreviousGhToken, "Process")
   Pop-Location
 }

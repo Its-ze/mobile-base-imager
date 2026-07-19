@@ -46,8 +46,8 @@ Ubuntu 24.04+, Debian 13+, and compatible x86_64 distributions with glibc 2.39+ 
 On Fedora 40 or newer, download the AppImage, make it executable, and run it:
 
 ```bash
-chmod +x Mobile_Base_Imager-0.3.8-x86_64.AppImage
-./Mobile_Base_Imager-0.3.8-x86_64.AppImage
+chmod +x Mobile_Base_Imager-0.3.9-x86_64.AppImage
+./Mobile_Base_Imager-0.3.9-x86_64.AppImage
 ```
 
 Download and run the standalone installer:
@@ -60,12 +60,12 @@ bash install-mobile-base-imager.sh
 The installer downloads the matching Debian package, verifies its published SHA-256, installs required system packages through APT, creates the desktop entry, and runs the built-in self-test.
 
 ```bash
-sudo apt install ./mobile-base-imager_0.3.8_linux_amd64.deb
+sudo apt install ./mobile-base-imager_0.3.9_linux_amd64.deb
 ```
 
 The portable Linux archive can run without installation. Extract it and launch `./mobile-base-imager`, or run `sudo ./install.sh` to add the desktop entry.
 
-New Mobile Base 0.9.3 units automatically use DHCP when Ethernet is connected. Open the unique `.local` setup address printed in `mobile-base-pairing.txt`, enter the pairing code, choose Ethernet-only setup, and configure `mobileadmin`. The dashboard is on port 8788 and the full pinned SSH shell is on port 22. A card may also be privately provisioned before first boot with a single-use hub enrollment phrase and an operator SSH public key; first boot waits for the BOOT partition, installs the key with passwordless administrative control, consumes the enrollment files after setup, and disables password authentication for `mobileadmin`. The public image contains no enrollment secrets or operator keys. Remote management is outbound-only and opt-in; the image does not expose a hidden Internet listener.
+New Mobile Base 0.9.4 units automatically use DHCP when Ethernet is connected. Open the unique `.local` setup address printed in `mobile-base-pairing.txt`, enter the pairing code, choose Ethernet-only setup, and configure `mobileadmin`. The dashboard is on port 8788 and the full pinned SSH shell is on port 22. USB NMEA GPS receivers are detected through stable serial paths, gpsd and its worker are supervised, an automatic field mission starts or resumes, and local Bluetooth advertises status/control after the Pi controller is ready. A card may also be privately provisioned before first boot with a single-use hub enrollment phrase and an operator SSH public key; first boot installs the key, consumes enrollment files after setup, and disables password authentication. The public image contains no enrollment secrets or operator keys. Remote management is outbound-only and opt-in; the image does not expose a hidden Internet listener.
 
 Linux discovery uses `lsblk`; destructive operations use `wipefs`, `parted`, and the appropriate `mkfs` utility. The app's **Restart as root** button elevates only after the operator chooses a raw-media workflow.
 
