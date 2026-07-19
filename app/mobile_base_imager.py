@@ -38,9 +38,9 @@ from app.core import (
 PRODUCT = "Mobile Base Imager"
 MANIFEST_URL = "https://its-ze.github.io/mobile-base-imager/release-manifest.json"
 FALLBACK_MANIFEST = {
-    "imageVersion": "0.9.4",
-    "imageAsset": "mobile-base-pi5-0.9.4.img.zst",
-    "imageUrl": "https://github.com/Its-ze/mobile-base-imager/releases/download/v0.3.9/mobile-base-pi5-0.9.4.img.zst",
+    "imageVersion": "0.9.5",
+    "imageAsset": "mobile-base-pi5-0.9.5.img.zst",
+    "imageUrl": "https://github.com/Its-ze/mobile-base-imager/releases/download/v0.4.0/mobile-base-pi5-0.9.5.img.zst",
     "imageBytes": 535962477,
     "imageSha256": "A09839AAB1727648055C1438A6CC5E3BF397694D741A4E12E2C18E3B242D87D1",
 }

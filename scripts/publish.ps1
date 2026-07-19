@@ -67,9 +67,9 @@ try {
   $releaseTags = @((& gh release list --repo "$Owner/$Repo" --limit 100 --json tagName | ConvertFrom-Json) | ForEach-Object { $_.tagName })
   if ($releaseTags -notcontains $tag) {
     $releaseNotes = @"
-Mobile Base Imager $tag publishes the verified Mobile Base 0.9.4 appliance image for Raspberry Pi 5.
+Mobile Base Imager $tag publishes the verified Mobile Base 0.9.5 appliance image for Raspberry Pi 5.
 
-Mobile Base 0.9.4 adds plug-and-play USB NMEA GPS detection, supervised gpsd worker startup, automatic mission creation or resume, Raspberry Pi 5 Bluetooth firmware, and reboot-persistent local BLE discovery/status/control. Provisioned units retain key-only `mobileadmin` access, single-use outbound Hub enrollment, and no embedded private credential in the public image.
+Mobile Base 0.9.5 adds plug-and-play ESP32 discovery, backup-before-flash provisioning, Wi-Fi survey and sensor-controller firmware, Tab5 controller pairing, and network sensor controls. USB NMEA GPS, automatic missions, key-only `mobileadmin` access, outbound Hub enrollment, and local Bluetooth onboarding remain included. No controller key, enrollment secret, or operator private key is embedded in the public image.
 
 The imager retains safe removable-drive filtering, verified downloads, raw flashing, full readback, verify-only comparison, compressed backups, formatting, checksums, cache tools, and operation logs.
 "@
@@ -84,8 +84,8 @@ The imager retains safe removable-drive filtering, verified downloads, raw flash
     "dist\mobile-base-imager_$($Version)_linux_amd64.deb",
     "dist\Mobile_Base_Imager-$Version-x86_64.AppImage",
     "dist\install-mobile-base-imager.sh",
-    "dist\mobile-base-pi5-0.9.4.img.zst",
-    "dist\mobile-base-pi5-0.9.4.img.zst.sha256",
+    "dist\mobile-base-pi5-0.9.5.img.zst",
+    "dist\mobile-base-pi5-0.9.5.img.zst.sha256",
     "dist\checksums.txt"
   )
   & gh release upload $tag @assets --repo "$Owner/$Repo" --clobber

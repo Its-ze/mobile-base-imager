@@ -6,7 +6,7 @@ if (-not $Version) { $Version = (Get-Content -LiteralPath (Join-Path $Root "VERS
 $Tooling = Join-Path $env:LOCALAPPDATA "MobileBaseImagerTooling\venv"
 $Python = Join-Path $Tooling "Scripts\python.exe"
 if (-not (Test-Path -LiteralPath $Python)) { & (Join-Path $PSScriptRoot "bootstrap.ps1") }
-$ImageVersion = "0.9.4"
+$ImageVersion = "0.9.5"
 $ImageAsset = "mobile-base-pi5-$ImageVersion.img.zst"
 $Image = "F:\Dropbox\Dev Ops\Mobile Base\dist\image\$ImageAsset"
 $ImageChecksum = "$Image.sha256"
