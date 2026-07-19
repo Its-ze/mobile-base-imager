@@ -10,7 +10,7 @@ Copy-Item -LiteralPath (Join-Path $Root "assets\mobile-base-imager-mark.svg") -D
 if (Test-Path -LiteralPath (Join-Path $Root "output\mobile-base-imager-ui.png")) {
   Copy-Item -LiteralPath (Join-Path $Root "output\mobile-base-imager-ui.png") -Destination (Join-Path $Assets "mobile-base-imager-ui.png") -Force
 }
-$ImageVersion = "0.9.2"
+$ImageVersion = "0.9.3"
 $ImageAsset = "mobile-base-pi5-$ImageVersion.img.zst"
 $Image = Join-Path $Root "dist\$ImageAsset"
 $Exe = Join-Path $Root "dist\mobile-base-imager-v$Version-windows-x64.exe"

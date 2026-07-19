@@ -49,9 +49,9 @@ try {
   $releaseTags = @((& gh release list --repo "$Owner/$Repo" --limit 100 --json tagName | ConvertFrom-Json) | ForEach-Object { $_.tagName })
   if ($releaseTags -notcontains $tag) {
     $releaseNotes = @"
-Mobile Base Imager $tag publishes the verified Mobile Base 0.9.2 appliance image for Raspberry Pi 5.
+Mobile Base Imager $tag publishes the verified Mobile Base 0.9.3 appliance image for Raspberry Pi 5.
 
-Mobile Base 0.9.2 adds optional zero-touch first-boot enrollment from a removable BOOT configuration and imports an operator-provided SSH public key for key-only `mobileadmin` access. Enrollment is single-use and outbound-only; the unit consumes the bootstrap phrase after the hub confirms enrollment. The downloadable image remains generic and contains no private enrollment phrase, administrator token, or operator key.
+Mobile Base 0.9.3 fixes first-boot ordering so the removable BOOT partition is mounted before zero-touch hub enrollment and operator SSH-key import run. Provisioned units receive key-only `mobileadmin` access with passwordless administrative control, and the one-time enrollment files are consumed after successful setup. Enrollment remains single-use and outbound-only. The downloadable image is generic and contains no private enrollment phrase, administrator token, or operator key.
 
 The imager retains safe removable-drive filtering, verified downloads, raw flashing, full readback, verify-only comparison, compressed backups, formatting, checksums, cache tools, and operation logs.
 "@
@@ -66,8 +66,8 @@ The imager retains safe removable-drive filtering, verified downloads, raw flash
     "dist\mobile-base-imager_$($Version)_linux_amd64.deb",
     "dist\Mobile_Base_Imager-$Version-x86_64.AppImage",
     "dist\install-mobile-base-imager.sh",
-    "dist\mobile-base-pi5-0.9.2.img.zst",
-    "dist\mobile-base-pi5-0.9.2.img.zst.sha256",
+    "dist\mobile-base-pi5-0.9.3.img.zst",
+    "dist\mobile-base-pi5-0.9.3.img.zst.sha256",
     "dist\checksums.txt"
   )
   & gh release upload $tag @assets --repo "$Owner/$Repo" --clobber
